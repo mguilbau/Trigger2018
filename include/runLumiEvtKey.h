@@ -10,7 +10,6 @@ class runLumiEvtKey{
   runLumiEvtKey(){};
   bool addKey(unsigned int run, unsigned int lumi, unsigned long evt, int entry);
   int getEntryFromKey(unsigned int run, unsigned int lumi, unsigned long evt);
-  unsigned long long makeKey(unsigned int run, unsigned int lumi, unsigned long evt);
 
  private:
   unsigned long long makeKey(unsigned int run, unsigned int lumi, unsigned long evt);
@@ -30,7 +29,7 @@ unsigned long long runLumiEvtKey::makeKey(unsigned int run, unsigned int lumi, u
   outNum += ((unsigned long long)lumi)*lumiMult;
   outNum += evt;
 
-  std::cout << run << ", " << lumi << ", " << evt << ", " << outNum << std::endl;
+  //  std::cout << run << ", " << lumi << ", " << evt << ", " << outNum << std::endl;
   
   return outNum;
 }
