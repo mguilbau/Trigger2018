@@ -48,7 +48,7 @@ int l1FiringFraction(const std::string inFileName)
   }
 
   for(Int_t jI = 0; jI < nJetThresholds; ++jI){
-    std::cout << "Thresh " << jetThresholds[jI] << ": " << jetCounts[jI] << "/" << nEntries << std::endl;
+    std::cout << "Thresh " << jetThresholds[jI] << ": " << jetCounts[jI] << "/" << nEntries << " = " << (Double_t(jetCounts[jI]))/(Double_t(nEntries))<< std::endl;
   }
 
   inFile_p->Close();

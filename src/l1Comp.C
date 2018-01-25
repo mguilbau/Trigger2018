@@ -6,6 +6,7 @@
 #include "TTree.h"
 #include "TH1F.h"
 #include "TMath.h"
+#include "TNamed.h"
 
 #include "include/doGlobalDebug.h"
 #include "include/runLumiEvtKey.h"
@@ -98,12 +99,16 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
   TH1F* l1JetEt_h[nL1Algo];
+  TH1F* l1JetEta_h[nL1Algo];
+  TH1F* l1JetPhi_h[nL1Algo];
   TH1F* jetPt_h[nJetAlgos];
   TH1F* jetPt_Trig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
 
   for(Int_t i = 0; i < nL1Algo; ++i){
     l1JetEt_h[i] = new TH1F(("l1JetEt_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
-    centerTitles({l1JetEt_h[i]});
+    l1JetEta_h[i] = new TH1F(("l1JetEta_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
+    l1JetPhi_h[i] = new TH1F(("l1JetPhi_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
+    centerTitles({l1JetEt_h[i], l1JetEta_h[i], l1JetPhi_h[i]});
   }
 
   const Int_t nJtPtBins = 14;
@@ -171,6 +176,8 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
     for(unsigned int jI = 0; jI < jetEt1_p->size(); ++jI){
       l1JetEt_h[0]->Fill(jetEt1_p->at(jI));
+      l1JetEta_h[0]->Fill(jetEta1_p->at(jI));
+      l1JetPhi_h[0]->Fill(jetPhi1_p->at(jI));
     }
   }
 
@@ -218,6 +225,8 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
     for(unsigned int jI = 0; jI < jetEt2_p->size(); ++jI){
       l1JetEt_h[1]->Fill(jetEt2_p->at(jI));
+      l1JetEta_h[1]->Fill(jetEta2_p->at(jI));
+      l1JetPhi_h[1]->Fill(jetPhi2_p->at(jI));
     }
   }
 
@@ -260,6 +269,8 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
   const Int_t nEntriesForest = hiTree_p->GetEntries();
 
+  Int_t totalFound = 0;
+
   std::cout << "Processing forest..." << std::endl;
   for(Int_t entry = 0; entry < nEntriesForest; ++entry){
     if(entry%10000 == 0) std::cout << " Entry " << entry << "/" << nEntriesForest << std::endl;
@@ -271,7 +282,8 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
     Int_t entryL1Algo2 = l1AlgoMap[1].getEntryFromKey(runF, lumiF, eventF);
     if(entryL1Algo2 < 0) continue;
 
-    std::cout << "  Found entry!" << std::endl;
+    totalFound++;
+    //    std::cout << "  Found entry!" << std::endl;
 
     for(unsigned int i = 0; i < jetTreeStr.size(); ++i){jetTree_p[i]->GetEntry(entry);}
     inL1Algo1UpgradeTree_p->GetEntry(entryL1Algo1);
@@ -298,12 +310,12 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 	Float_t matchedL1Pt_[nL1Algo] = {-999, -999};
 
 	for(unsigned int lI = 0; lI < jetEt1_p->size(); ++lI){
-	  if(getDR(jetEta1_p->at(lI), jetPhi1_p->at(lI), leadingJtEta_, leadingJtPhi_) > .4) continue;
+	  if(getDR(jetEta1_p->at(lI), jetPhi1_p->at(lI), leadingJtEta_, leadingJtPhi_) > 2.) continue;
 	  if(matchedL1Pt_[0] < jetEt1_p->at(lI)) matchedL1Pt_[0] = jetEt1_p->at(lI);
 	}
 
 	for(unsigned int lI = 0; lI < jetEt2_p->size(); ++lI){
-	  if(getDR(jetEta2_p->at(lI), jetPhi2_p->at(lI), leadingJtEta_, leadingJtPhi_) > .4) continue;
+	  if(getDR(jetEta2_p->at(lI), jetPhi2_p->at(lI), leadingJtEta_, leadingJtPhi_) > 2.) continue;
 	  if(matchedL1Pt_[1] < jetEt2_p->at(lI)) matchedL1Pt_[1] = jetEt2_p->at(lI);
 	}
 
@@ -316,6 +328,8 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
       }
     }
   }
+
+  std::cout << "Total found: " << totalFound << std::endl;
 
   forestFile_p->Close();
   delete forestFile_p;
@@ -334,6 +348,12 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   for(Int_t i = 0; i < nL1Algo; ++i){
     l1JetEt_h[i]->Write("", TObject::kOverwrite);
     delete l1JetEt_h[i];
+
+    l1JetEta_h[i]->Write("", TObject::kOverwrite);
+    delete l1JetEta_h[i];
+
+    l1JetPhi_h[i]->Write("", TObject::kOverwrite);
+    delete l1JetPhi_h[i];
   }
 
   for(Int_t jI = 0; jI < nJetAlgos; ++jI){
