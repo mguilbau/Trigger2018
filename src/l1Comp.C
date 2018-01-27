@@ -98,18 +98,31 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   runLumiEvtKey l1AlgoMap[nL1Algo] = {runLumiEvtKey(), runLumiEvtKey()};
   
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
+  const Int_t nL1PtBins2D = 3;
+  const Double_t l1PtBins2DLow[nL1PtBins2D+1] = { 8.,  8., 24.,  40.};
+  const Double_t l1PtBins2DHi[nL1PtBins2D+1] = {200., 24., 40., 200.};
+
   TH1F* l1JetEt_h[nL1Algo];
-  TH1F* l1JetEta_h[nL1Algo];
-  TH1F* l1JetPhi_h[nL1Algo];
+  TH1F* l1JetEta_h[nL1Algo][nL1PtBins2D+1];
+  TH1F* l1JetPhi_h[nL1Algo][nL1PtBins2D+1];
   TH1F* jetPt_h[nJetAlgos];
   TH1F* jetPt_Trig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
 
   for(Int_t i = 0; i < nL1Algo; ++i){
     l1JetEt_h[i] = new TH1F(("l1JetEt_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
-    l1JetEta_h[i] = new TH1F(("l1JetEta_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
-    l1JetPhi_h[i] = new TH1F(("l1JetPhi_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
-    centerTitles({l1JetEt_h[i], l1JetEta_h[i], l1JetPhi_h[i]});
+    centerTitles({l1JetEt_h[i]});
+
+    for(Int_t j = 0; j < nL1PtBins2D+1; ++j){
+      std::string ptStr = "Pt" + prettyString(l1PtBins2DLow[j], 1, true) + "to" + prettyString(l1PtBins2DHi[j], 1, true);
+      std::string ptStr2 = prettyString(l1PtBins2DLow[j], 1,false) + " < p_{T,L1} < " + prettyString(l1PtBins2DHi[j], 1, false);
+
+      l1JetEta_h[i][j] = new TH1F(("l1JetEta_" + l1AlgoStr[i] + "_" + ptStr + "_h").c_str(), (";L1 Jet #eta (" + l1AlgoStr[i] + ", " + ptStr2 + ");Counts").c_str(), 50, -5.1, 5.1);
+      l1JetPhi_h[i][j] = new TH1F(("l1JetPhi_" + l1AlgoStr[i] + "_" + ptStr + "_h").c_str(), (";L1 Jet #phi (" + l1AlgoStr[i] + ", " + ptStr2 + ");Counts").c_str(), 50, -TMath::Pi(), TMath::Pi());
+
+      centerTitles({l1JetEta_h[i][j], l1JetPhi_h[i][j]});
+    }
   }
+  
 
   const Int_t nJtPtBins = 14;
   const Float_t jtPtLow = 30;
@@ -176,8 +189,13 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
     for(unsigned int jI = 0; jI < jetEt1_p->size(); ++jI){
       l1JetEt_h[0]->Fill(jetEt1_p->at(jI));
-      l1JetEta_h[0]->Fill(jetEta1_p->at(jI));
-      l1JetPhi_h[0]->Fill(jetPhi1_p->at(jI));
+
+      for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
+	if(l1PtBins2DLow[lI] <= jetEt1_p->at(jI) && jetEt1_p->at(jI) < l1PtBins2DHi[lI]){
+	  l1JetEta_h[0][lI]->Fill(jetEta1_p->at(jI));
+	  l1JetPhi_h[0][lI]->Fill(jetPhi1_p->at(jI));
+	}
+      }
     }
   }
 
@@ -225,8 +243,14 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
     for(unsigned int jI = 0; jI < jetEt2_p->size(); ++jI){
       l1JetEt_h[1]->Fill(jetEt2_p->at(jI));
-      l1JetEta_h[1]->Fill(jetEta2_p->at(jI));
-      l1JetPhi_h[1]->Fill(jetPhi2_p->at(jI));
+
+      for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
+	if(l1PtBins2DLow[lI] <= jetEt2_p->at(jI) && jetEt2_p->at(jI) < l1PtBins2DHi[lI]){
+	  l1JetEta_h[1][lI]->Fill(jetEta2_p->at(jI));
+	  l1JetPhi_h[1][lI]->Fill(jetPhi2_p->at(jI));
+	}
+      }
+
     }
   }
 
@@ -346,14 +370,20 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
   outFile_p->cd();
   for(Int_t i = 0; i < nL1Algo; ++i){
+    l1JetEt_h[i]->SetMinimum(0.5);
     l1JetEt_h[i]->Write("", TObject::kOverwrite);
     delete l1JetEt_h[i];
 
-    l1JetEta_h[i]->Write("", TObject::kOverwrite);
-    delete l1JetEta_h[i];
+    for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
+      l1JetEta_h[i][lI]->SetMinimum(0.5);
+      l1JetPhi_h[i][lI]->SetMinimum(0.5);    
 
-    l1JetPhi_h[i]->Write("", TObject::kOverwrite);
-    delete l1JetPhi_h[i];
+      l1JetEta_h[i][lI]->Write("", TObject::kOverwrite);
+      delete l1JetEta_h[i][lI];
+      
+      l1JetPhi_h[i][lI]->Write("", TObject::kOverwrite);
+      delete l1JetPhi_h[i][lI];    
+    }
   }
 
   for(Int_t jI = 0; jI < nJetAlgos; ++jI){
