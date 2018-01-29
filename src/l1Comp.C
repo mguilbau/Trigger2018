@@ -38,8 +38,8 @@ std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 
 std::string getL1AlgoFromFileName(const std::string inFileName)
 {
-  const Int_t nValidAlgo = 4;
-  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPP"};
+  const Int_t nValidAlgo = 5;
+  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRinPP"};
 
   Int_t algoPos = -1;
   for(Int_t i = 0; i < nValidAlgo; ++i){
@@ -334,12 +334,12 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 	Float_t matchedL1Pt_[nL1Algo] = {-999, -999};
 
 	for(unsigned int lI = 0; lI < jetEt1_p->size(); ++lI){
-	  if(getDR(jetEta1_p->at(lI), jetPhi1_p->at(lI), leadingJtEta_, leadingJtPhi_) > 2.) continue;
+	  if(getDR(jetEta1_p->at(lI), jetPhi1_p->at(lI), leadingJtEta_, leadingJtPhi_) > 1.) continue;
 	  if(matchedL1Pt_[0] < jetEt1_p->at(lI)) matchedL1Pt_[0] = jetEt1_p->at(lI);
 	}
 
 	for(unsigned int lI = 0; lI < jetEt2_p->size(); ++lI){
-	  if(getDR(jetEta2_p->at(lI), jetPhi2_p->at(lI), leadingJtEta_, leadingJtPhi_) > 2.) continue;
+	  if(getDR(jetEta2_p->at(lI), jetPhi2_p->at(lI), leadingJtEta_, leadingJtPhi_) > 1.) continue;
 	  if(matchedL1Pt_[1] < jetEt2_p->at(lI)) matchedL1Pt_[1] = jetEt2_p->at(lI);
 	}
 
