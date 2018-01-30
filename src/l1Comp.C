@@ -4,9 +4,15 @@
 
 #include "TFile.h"
 #include "TTree.h"
+#include "TLine.h"
 #include "TH1F.h"
 #include "TMath.h"
 #include "TNamed.h"
+#include "TGraphAsymmErrors.h"
+#include "TCanvas.h"
+#include "TStyle.h"
+#include "TLatex.h"
+#include "TLegend.h"
 
 #include "include/doGlobalDebug.h"
 #include "include/runLumiEvtKey.h"
@@ -15,6 +21,7 @@
 #include "include/plotUtilities.h"
 #include "include/histDefUtility.h"
 #include "include/etaPhiFunc.h"
+#include "include/kirchnerPalette.h"
 
 std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 {
@@ -38,8 +45,11 @@ std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 
 std::string getL1AlgoFromFileName(const std::string inFileName)
 {
-  const Int_t nValidAlgo = 5;
-  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRinPP"};
+  const Int_t nValidAlgo = 6;
+  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPP"};
+
+  const Int_t nParam = 1;
+  const std::string param[nParam] = {"SeedThresh2"};
 
   Int_t algoPos = -1;
   for(Int_t i = 0; i < nValidAlgo; ++i){
@@ -49,27 +59,127 @@ std::string getL1AlgoFromFileName(const std::string inFileName)
     }
   }
 
+  Int_t paramPos = -1;
+  for(Int_t i = 0; i < nParam; ++i){
+    if(inFileName.find(param[i]) != std::string::npos){
+      paramPos = i;
+      break;
+    }
+  }
+
   std::string outStr = "NOVALIDALGO";
   if(algoPos == 1 && inFileName.find("ChunkyDonut") != std::string::npos) outStr = "ChunkyDonut";
   else if(algoPos != -1) outStr = validAlgo[algoPos];
+
+  if(paramPos != -1) outStr = outStr + "_" + param[paramPos];
 
   return outStr;
 }
 
 
-int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, const std::string inForestName, std::string outFileName = "")
+void turnOnToCanv(TFile* inFile_p, TH1* inHistDenom_p, std::vector<TH1*> inHistNum_p, std::string ptThresh, std::string jetLabel, std::string jetLabel2)
+{
+  kirchnerPalette col;
+  TLegend* leg_p = new TLegend(.6, .2, .9, .5);
+  leg_p->SetTextFont(43);
+  leg_p->SetTextSize(14);
+  leg_p->SetBorderSize(0);
+  leg_p->SetFillStyle(0);
+
+  inFile_p->cd();
+  TDatime* date = new TDatime();
+  TH1F* hist_p = new TH1F("hist_p", ";Raw jet p_{T} (GeV/c);Efficiency", inHistDenom_p->GetNbinsX(), inHistDenom_p->GetBinLowEdge(1), inHistDenom_p->GetBinLowEdge(inHistDenom_p->GetNbinsX()+1));
+  centerTitles({hist_p});
+  hist_p->SetMinimum(0.0);
+  hist_p->SetMaximum(1.1);
+
+  std::string canvStr = "canv";
+  for(unsigned int i = 0; i < inHistNum_p.size(); ++i){
+    canvStr = canvStr + "_" + getL1AlgoFromFileName(inHistNum_p.at(i)->GetName());
+  }
+  canvStr = canvStr + "_Pt" + ptThresh + "_TurnOn_c";
+  TCanvas* canv_p = new TCanvas(canvStr.c_str(), canvStr.c_str(), 500, 500);
+  gStyle->SetOptStat(0);
+  canv_p->SetLeftMargin(canv_p->GetLeftMargin()*1.5);
+  canv_p->SetBottomMargin(canv_p->GetLeftMargin());
+  canv_p->SetTopMargin(canv_p->GetLeftMargin()/2.);
+  canv_p->SetRightMargin(0.01);
+
+  hist_p->DrawCopy("HIST");
+  const Int_t nA = inHistNum_p.size();
+  TGraphAsymmErrors* aPt_p[nA];
+  TH1F* aPt_Leg_p[nA];
+
+  for(unsigned int i = 0; i < inHistNum_p.size(); ++i){
+    aPt_Leg_p[i] = new TH1F();
+    aPt_p[i] = new TGraphAsymmErrors();
+    aPt_p[i]->BayesDivide(inHistNum_p[i], inHistDenom_p);
+    aPt_p[i]->SetMarkerSize(.6);
+    aPt_p[i]->SetMarkerColor(col.getColor(i));
+    aPt_p[i]->SetLineColor(col.getColor(i));
+    aPt_p[i]->SetMarkerStyle(20);
+
+    aPt_Leg_p[i]->SetMarkerSize(.6);
+    aPt_Leg_p[i]->SetMarkerColor(col.getColor(i));
+    aPt_Leg_p[i]->SetLineColor(col.getColor(i));
+    aPt_Leg_p[i]->SetMarkerStyle(20);
+
+    leg_p->AddEntry(aPt_Leg_p[i], getL1AlgoFromFileName(inHistNum_p[i]->GetName()).c_str(), "P L");
+
+    aPt_p[i]->Draw("P");
+  }
+
+  leg_p->Draw("SAME");
+
+  TLatex* label_p = new TLatex();
+  label_p->SetTextFont(43);
+  label_p->SetTextSize(14);
+  label_p->SetNDC();
+  label_p->DrawLatex(.15, .95, jetLabel.c_str());
+  delete label_p;
+
+  TLine* line_p = new TLine();
+  line_p->SetLineStyle(2);
+  line_p->DrawLine(inHistDenom_p->GetBinLowEdge(1), 1., inHistDenom_p->GetBinLowEdge(inHistDenom_p->GetNbinsX()+1), 1.);
+  delete line_p;
+
+  canv_p->SaveAs(("pdfDir/" + canvStr + "_" + jetLabel2 + "_" + std::to_string(date->GetDate()) + ".pdf").c_str());
+
+  delete canv_p;
+
+  delete leg_p;
+
+  for(unsigned int i = 0; i < inHistNum_p.size(); ++i){
+    delete aPt_p[i];
+  }
+
+  delete hist_p;
+
+  delete date;
+
+
+  return;
+}
+
+
+int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoNames)
 {
   //handling the output file in event none is specified
-  if(outFileName.size() == 0){
-    const Int_t nInStr = 3;
-    std::string inStr[nInStr] = {inL1Algo1Name, inL1Algo2Name, inForestName};
-    for(Int_t i = 0; i < nInStr; ++i){
-      while(inStr[i].find("/") != std::string::npos){inStr[i].replace(0, inStr[i].find("/")+1, "");}
-      while(inStr[i].find(".root") != std::string::npos){inStr[i].replace(inStr[i].find(".root"), std::string(".root").size(), "");}
-    }
-
-    outFileName = "l1Comp_" + getL1AlgoFromFileName(inStr[0]) + "_" + getL1AlgoFromFileName(inStr[1]) + "_" + inStr[2];
+  const Int_t nInStr = 1+inL1AlgoNames.size();
+  std::string inStr[nInStr];
+  for(Int_t i = 0; i < nInStr-1; ++i){inStr[i] = inL1AlgoNames.at(i);}
+  inStr[nInStr-1] = inForestName;
+  
+  for(Int_t i = 0; i < nInStr; ++i){
+    while(inStr[i].find("/") != std::string::npos){inStr[i].replace(0, inStr[i].find("/")+1, "");}
+    while(inStr[i].find(".root") != std::string::npos){inStr[i].replace(inStr[i].find(".root"), std::string(".root").size(), "");}
   }
+  std::string outFileName = "l1Comp_";
+  for(Int_t i = 0; i < nInStr-1; ++i){
+    outFileName = outFileName + getL1AlgoFromFileName(inStr[i]) + "_";
+  }
+  outFileName = outFileName + inStr[nInStr-1];
+  
   //append date to ouptut for simple versioning
   if(outFileName.find(".root") != std::string::npos) outFileName.replace(outFileName.find(".root"), std::string(".root").size(), "");
   TDatime* date = new TDatime();
@@ -89,13 +199,19 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   }
 
   //number of algos to compare will always be two but just maintain a baseline
-  const Int_t nL1Algo = 2;
+  const Int_t nL1Algo = inL1AlgoNames.size();
   
   const Int_t nL1JetThresholds = 5;
   const Float_t l1JetThresholds[nL1JetThresholds] = {8., 16., 24., 32., 40.};
 
-  const std::string l1AlgoStr[nL1Algo] = {getL1AlgoFromFileName(inL1Algo1Name), getL1AlgoFromFileName(inL1Algo2Name)};
-  runLumiEvtKey l1AlgoMap[nL1Algo] = {runLumiEvtKey(), runLumiEvtKey()};
+  std::string l1AlgoStr[nL1Algo];
+  runLumiEvtKey* l1AlgoMap[nL1Algo];
+  for(Int_t i = 0; i < nL1Algo; ++i){
+    l1AlgoStr[i] = getL1AlgoFromFileName(inL1AlgoNames.at(i));
+
+    l1AlgoMap[i] = NULL;
+    l1AlgoMap[i] = new runLumiEvtKey();
+  }
   
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
   const Int_t nL1PtBins2D = 3;
@@ -124,9 +240,9 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   }
   
 
-  const Int_t nJtPtBins = 14;
-  const Float_t jtPtLow = 30;
-  const Float_t jtPtHi = 100;
+  const Int_t nJtPtBins = 19;
+  const Float_t jtPtLow = 25;
+  const Float_t jtPtHi = 120;
   Double_t jtPtBins[nJtPtBins+1];
   getLinBins(jtPtLow, jtPtHi, nJtPtBins, jtPtBins);
 
@@ -144,137 +260,125 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
-  TFile* inL1Algo1_p = new TFile(inL1Algo1Name.c_str(), "READ");
-  TTree* inL1Algo1EvtTree_p = (TTree*)inL1Algo1_p->Get("l1EventTree/L1EventTree");
-  TTree* inL1Algo1UpgradeTree_p = (TTree*)inL1Algo1_p->Get("l1UpgradeEmuTree/L1UpgradeTree");
+  TFile* inL1Algo_p[nL1Algo];
+  TTree* inL1AlgoEvtTree_p[nL1Algo];
+  TTree* inL1AlgoUpgradeTree_p[nL1Algo];
+  for(Int_t i = 0; i < nL1Algo; ++i){
+    //    std::cout << " Input " << i << ": " << inL1AlgoNames.at(i) << std::endl;
 
-  UInt_t run1, lumi1;
-  ULong64_t event1;
-
-  std::vector<float>* jetEt1_p=0;
-  std::vector<float>* jetEta1_p=0;
-  std::vector<float>* jetPhi1_p=0;
-
-  inL1Algo1EvtTree_p->SetBranchStatus("*", 0);
-  inL1Algo1EvtTree_p->SetBranchStatus("run", 1);
-  inL1Algo1EvtTree_p->SetBranchStatus("lumi", 1);
-  inL1Algo1EvtTree_p->SetBranchStatus("event", 1);
-
-  inL1Algo1EvtTree_p->SetBranchAddress("run", &run1);
-  inL1Algo1EvtTree_p->SetBranchAddress("lumi", &lumi1);
-  inL1Algo1EvtTree_p->SetBranchAddress("event", &event1);
-
-  inL1Algo1UpgradeTree_p->SetBranchStatus("*", 0);
-  inL1Algo1UpgradeTree_p->SetBranchStatus("jetEt", 1);
-  inL1Algo1UpgradeTree_p->SetBranchStatus("jetEta", 1);
-  inL1Algo1UpgradeTree_p->SetBranchStatus("jetPhi", 1);
-
-  inL1Algo1UpgradeTree_p->SetBranchAddress("jetEt", &jetEt1_p);
-  inL1Algo1UpgradeTree_p->SetBranchAddress("jetEta", &jetEta1_p);
-  inL1Algo1UpgradeTree_p->SetBranchAddress("jetPhi", &jetPhi1_p);
-
-  const Int_t nEntriesL1Algo1 = inL1Algo1UpgradeTree_p->GetEntries();
-
-  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
-
-  for(Int_t entry = 0; entry < nEntriesL1Algo1; ++entry){
-    inL1Algo1EvtTree_p->GetEntry(entry);
-    inL1Algo1UpgradeTree_p->GetEntry(entry);
-
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
-    if(doGlobalDebug) std::cout << jetEt1_p->size() << std::endl;
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
-
-    l1AlgoMap[0].addKey(run1, lumi1, event1, entry);
-
-    for(unsigned int jI = 0; jI < jetEt1_p->size(); ++jI){
-      l1JetEt_h[0]->Fill(jetEt1_p->at(jI));
-
-      for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
-	if(l1PtBins2DLow[lI] <= jetEt1_p->at(jI) && jetEt1_p->at(jI) < l1PtBins2DHi[lI]){
-	  l1JetEta_h[0][lI]->Fill(jetEta1_p->at(jI));
-	  l1JetPhi_h[0][lI]->Fill(jetPhi1_p->at(jI));
-	}
-      }
-    }
+    inL1Algo_p[i] = NULL;
+    inL1Algo_p[i] = new TFile(inL1AlgoNames.at(i).c_str(), "READ");
+    inL1AlgoEvtTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1EventTree/L1EventTree");
+    inL1AlgoUpgradeTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1UpgradeEmuTree/L1UpgradeTree");
   }
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
-  TFile* inL1Algo2_p = new TFile(inL1Algo2Name.c_str(), "READ");
-  TTree* inL1Algo2EvtTree_p = (TTree*)inL1Algo2_p->Get("l1EventTree/L1EventTree");
-  TTree* inL1Algo2UpgradeTree_p = (TTree*)inL1Algo2_p->Get("l1UpgradeEmuTree/L1UpgradeTree");
+  UInt_t run_[nL1Algo];
+  UInt_t lumi_[nL1Algo];
+  ULong64_t event_[nL1Algo];
 
-  UInt_t run2, lumi2;
-  ULong64_t event2;
+  std::vector< std::vector<float>* > jetEt_p;
+  std::vector< std::vector<float>* > jetEta_p;
+  std::vector< std::vector<float>* > jetPhi_p;
 
-  std::vector<float>* jetEt2_p=0;
-  std::vector<float>* jetEta2_p=0;
-  std::vector<float>* jetPhi2_p=0;
+  jetEt_p.reserve(nL1Algo);
+  jetEta_p.reserve(nL1Algo);
+  jetPhi_p.reserve(nL1Algo);
 
-  inL1Algo2EvtTree_p->SetBranchStatus("*", 0);
-  inL1Algo2EvtTree_p->SetBranchStatus("run", 1);
-  inL1Algo2EvtTree_p->SetBranchStatus("lumi", 1);
-  inL1Algo2EvtTree_p->SetBranchStatus("event", 1);
+  for(Int_t i = 0; i < nL1Algo; ++i){
+    jetEt_p.push_back(NULL);
+    jetEta_p.push_back(NULL);
+    jetPhi_p.push_back(NULL);
 
-  inL1Algo2EvtTree_p->SetBranchAddress("run", &run2);
-  inL1Algo2EvtTree_p->SetBranchAddress("lumi", &lumi2);
-  inL1Algo2EvtTree_p->SetBranchAddress("event", &event2);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("*", 0);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("run", 1);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("lumi", 1);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("event", 1);
+    
+    inL1AlgoEvtTree_p[i]->SetBranchAddress("run", &(run_[i]));
+    inL1AlgoEvtTree_p[i]->SetBranchAddress("lumi", &(lumi_[i]));
+    inL1AlgoEvtTree_p[i]->SetBranchAddress("event", &(event_[i]));
+    
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("*", 0);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEt", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEta", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetPhi", 1);
+    
+    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetEt", &(jetEt_p.at(i)));
+    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetEta", &(jetEta_p.at(i)));
+    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetPhi", &(jetPhi_p.at(i)));
+  }
 
-  inL1Algo2UpgradeTree_p->SetBranchStatus("*", 0);
-  inL1Algo2UpgradeTree_p->SetBranchStatus("jetEt", 1);
-  inL1Algo2UpgradeTree_p->SetBranchStatus("jetEta", 1);
-  inL1Algo2UpgradeTree_p->SetBranchStatus("jetPhi", 1);
+  for(Int_t i = 0; i < nL1Algo; ++i){
+    for(Int_t entry = 0; entry < inL1AlgoEvtTree_p[i]->GetEntries(); ++entry){
+      inL1AlgoEvtTree_p[i]->GetEntry(entry);
+      inL1AlgoUpgradeTree_p[i]->GetEntry(entry);
 
-  inL1Algo2UpgradeTree_p->SetBranchAddress("jetEt", &jetEt2_p);
-  inL1Algo2UpgradeTree_p->SetBranchAddress("jetEta", &jetEta2_p);
-  inL1Algo2UpgradeTree_p->SetBranchAddress("jetPhi", &jetPhi2_p);
+      l1AlgoMap[i]->addKey(run_[i], lumi_[i], event_[i], entry);
 
-
-  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
-
-  const Int_t nEntriesL1Algo2 = inL1Algo2UpgradeTree_p->GetEntries();
-
-  for(Int_t entry = 0; entry < nEntriesL1Algo2; ++entry){
-    inL1Algo2EvtTree_p->GetEntry(entry);
-    inL1Algo2UpgradeTree_p->GetEntry(entry);
-
-    l1AlgoMap[1].addKey(run2, lumi2, event2, entry);
-
-    for(unsigned int jI = 0; jI < jetEt2_p->size(); ++jI){
-      l1JetEt_h[1]->Fill(jetEt2_p->at(jI));
-
-      for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
-	if(l1PtBins2DLow[lI] <= jetEt2_p->at(jI) && jetEt2_p->at(jI) < l1PtBins2DHi[lI]){
-	  l1JetEta_h[1][lI]->Fill(jetEta2_p->at(jI));
-	  l1JetPhi_h[1][lI]->Fill(jetPhi2_p->at(jI));
+      for(unsigned int jI = 0; jI < jetEt_p.at(i)->size(); ++jI){
+	l1JetEt_h[i]->Fill(jetEt_p.at(i)->at(jI));
+	
+	for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
+	  if(l1PtBins2DLow[lI] <= jetEt_p.at(i)->at(jI) && jetEt_p.at(i)->at(jI) < l1PtBins2DHi[lI]){
+	    l1JetEta_h[i][lI]->Fill(jetEta_p.at(i)->at(jI));
+	    l1JetPhi_h[i][lI]->Fill(jetPhi_p.at(i)->at(jI));
+	  }
 	}
       }
-
     }
   }
 
   UInt_t runF, lumiF;
   ULong64_t eventF;
+  Float_t vz_;
+
+  Int_t pBeamScrapingFilter_;
+  Int_t pPAprimaryVertexFilter_;
+  Int_t HBHENoiseFilterResultRun2Loose_;
+
+  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
   const Int_t nMaxJets = 500;
   Int_t nref_[nJetAlgos];
   Float_t jtpt_[nJetAlgos][nMaxJets];
+  Float_t rawpt_[nJetAlgos][nMaxJets];
   Float_t jteta_[nJetAlgos][nMaxJets];
   Float_t jtphi_[nJetAlgos][nMaxJets];
 
+  Float_t jtPfCHF_[nJetAlgos][nMaxJets];
+  Float_t jtPfCEF_[nJetAlgos][nMaxJets];
+  Float_t jtPfNHF_[nJetAlgos][nMaxJets];
+  Float_t jtPfNEF_[nJetAlgos][nMaxJets];
+  Float_t jtPfMUF_[nJetAlgos][nMaxJets];
+
   forestFile_p = new TFile(inForestName.c_str(), "READ");  
   TTree* hiTree_p = (TTree*)forestFile_p->Get("hiEvtAnalyzer/HiTree");
+  TTree* skimTree_p = (TTree*)forestFile_p->Get("skimanalysis/HltTree");
   TTree* jetTree_p[nJetAlgos];
 
   hiTree_p->SetBranchStatus("*", 0);
   hiTree_p->SetBranchStatus("run", 1);
   hiTree_p->SetBranchStatus("lumi", 1);
   hiTree_p->SetBranchStatus("evt", 1);
+  hiTree_p->SetBranchStatus("vz", 1);
 
   hiTree_p->SetBranchAddress("run", &runF);
   hiTree_p->SetBranchAddress("lumi", &lumiF);
   hiTree_p->SetBranchAddress("evt", &eventF);
+  hiTree_p->SetBranchAddress("vz", &vz_);
+
+  skimTree_p->SetBranchStatus("*", 0);
+  skimTree_p->SetBranchStatus("pBeamScrapingFilter", 1);
+  skimTree_p->SetBranchStatus("pPAprimaryVertexFilter", 1);
+  skimTree_p->SetBranchStatus("HBHENoiseFilterResultRun2Loose", 1);
+
+  skimTree_p->SetBranchAddress("pBeamScrapingFilter", &pBeamScrapingFilter_);
+  skimTree_p->SetBranchAddress("pPAprimaryVertexFilter", &pPAprimaryVertexFilter_);
+  skimTree_p->SetBranchAddress("HBHENoiseFilterResultRun2Loose", &HBHENoiseFilterResultRun2Loose_);
+
+  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
   for(unsigned int i = 0; i < jetTreeStr.size(); ++i){
     jetTree_p[i] = (TTree*)forestFile_p->Get(jetTreeStr.at(i).c_str());
@@ -282,13 +386,29 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
     jetTree_p[i]->SetBranchStatus("*", 0);
     jetTree_p[i]->SetBranchStatus("nref", 1);
     jetTree_p[i]->SetBranchStatus("jtpt", 1);
+    jetTree_p[i]->SetBranchStatus("rawpt", 1);
     jetTree_p[i]->SetBranchStatus("jteta", 1);
     jetTree_p[i]->SetBranchStatus("jtphi", 1);
 
     jetTree_p[i]->SetBranchAddress("nref", &nref_[i]);
     jetTree_p[i]->SetBranchAddress("jtpt", jtpt_[i]);
+    jetTree_p[i]->SetBranchAddress("rawpt", rawpt_[i]);
     jetTree_p[i]->SetBranchAddress("jteta", jteta_[i]);
     jetTree_p[i]->SetBranchAddress("jtphi", jtphi_[i]);
+
+    if(jetTreeStr.at(i).find("Cs") != std::string::npos || jetTreeStr.at(i).find("CS") != std::string::npos){
+      jetTree_p[i]->SetBranchStatus("jtPfCHF", 1);
+      jetTree_p[i]->SetBranchStatus("jtPfCEF", 1);
+      jetTree_p[i]->SetBranchStatus("jtPfNHF", 1);
+      jetTree_p[i]->SetBranchStatus("jtPfNEF", 1);
+      jetTree_p[i]->SetBranchStatus("jtPfMUF", 1);
+
+      jetTree_p[i]->SetBranchAddress("jtPfCHF", jtPfCHF_[i]);
+      jetTree_p[i]->SetBranchAddress("jtPfCEF", jtPfCEF_[i]);
+      jetTree_p[i]->SetBranchAddress("jtPfNHF", jtPfNHF_[i]);
+      jetTree_p[i]->SetBranchAddress("jtPfNEF", jtPfNEF_[i]);
+      jetTree_p[i]->SetBranchAddress("jtPfMUF", jtPfMUF_[i]);
+    }
   }
 
   const Int_t nEntriesForest = hiTree_p->GetEntries();
@@ -299,53 +419,79 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   for(Int_t entry = 0; entry < nEntriesForest; ++entry){
     if(entry%10000 == 0) std::cout << " Entry " << entry << "/" << nEntriesForest << std::endl;
 
+    skimTree_p->GetEntry(entry);
     hiTree_p->GetEntry(entry);
-    
-    Int_t entryL1Algo1 = l1AlgoMap[0].getEntryFromKey(runF, lumiF, eventF);
-    if(entryL1Algo1 < 0) continue;
-    Int_t entryL1Algo2 = l1AlgoMap[1].getEntryFromKey(runF, lumiF, eventF);
-    if(entryL1Algo2 < 0) continue;
+
+    if(TMath::Abs(vz_) > 15.) continue;
+    if(!pPAprimaryVertexFilter_) continue;
+    if(!pBeamScrapingFilter_) continue;
+    if(!HBHENoiseFilterResultRun2Loose_) continue;
+
+    bool isGood = true;
+    Int_t entryL1Algos[nL1Algo];
+    for(Int_t lI = 0; lI < nL1Algo; ++lI){entryL1Algos[lI] = -1;}
+    for(Int_t lI = 0; lI < nL1Algo; ++lI){
+      entryL1Algos[lI] = l1AlgoMap[lI]->getEntryFromKey(runF, lumiF, eventF);
+      if(entryL1Algos[lI] < 0){isGood = false; break;}
+    }
+    if(!isGood) continue;
 
     totalFound++;
     //    std::cout << "  Found entry!" << std::endl;
 
     for(unsigned int i = 0; i < jetTreeStr.size(); ++i){jetTree_p[i]->GetEntry(entry);}
-    inL1Algo1UpgradeTree_p->GetEntry(entryL1Algo1);
-    inL1Algo2UpgradeTree_p->GetEntry(entryL1Algo2);
-    
+
+    //    std::cout << runF << ", " << lumiF << ", " << eventF << std::endl;
+
+    for(Int_t lI = 0; lI < nL1Algo; ++lI){
+      //      std::cout << " " << entryL1Algos[lI] << ",";
+      inL1AlgoUpgradeTree_p[lI]->GetEntry(entryL1Algos[lI]);
+    }
+    //    std::cout << std::endl;
+
     for(unsigned int i = 0; i < jetTreeStr.size(); ++i){
-      Float_t leadingJtPt_ = -999;
+      //      Float_t leadingJtPt_ = -999;
+      Float_t leadingRawPt_ = -999;
       Float_t leadingJtPhi_ = -999;
       Float_t leadingJtEta_ = -999;
 
       for(Int_t jI = 0; jI < nref_[i]; ++jI){
 	if(TMath::Abs(jteta_[i][jI]) > 2.) continue;
 
-	if(jtpt_[i][jI] > leadingJtPt_){
-	  leadingJtPt_ = jtpt_[i][jI];
+	if(jetTreeStr.at(i).find("Cs") != std::string::npos || jetTreeStr.at(i).find("CS") != std::string::npos){
+	  if(jtPfMUF_[i][jI] > .8) continue;
+	  if(jtPfCEF_[i][jI] > .8) continue;
+	}
+	
+	if(rawpt_[i][jI] > leadingRawPt_){
+	  //	  leadingJtPt_ = jtpt_[i][jI];
+	  leadingRawPt_ = rawpt_[i][jI];
 	  leadingJtPhi_ = jtphi_[i][jI];
 	  leadingJtEta_ = jteta_[i][jI];
 	}
       }
 
-      if(leadingJtPt_ > jtPtLow && leadingJtPt_ < jtPtHi){
-	jetPt_h[i]->Fill(leadingJtPt_);
+      if(leadingRawPt_ > jtPtLow && leadingRawPt_ < jtPtHi){
+	jetPt_h[i]->Fill(leadingRawPt_);
 
-	Float_t matchedL1Pt_[nL1Algo] = {-999, -999};
+	Float_t matchedL1Pt_[nL1Algo];
+	for(Int_t lI = 0; lI < nL1Algo; ++lI){
+	  matchedL1Pt_[lI] = -999.;
 
-	for(unsigned int lI = 0; lI < jetEt1_p->size(); ++lI){
-	  if(getDR(jetEta1_p->at(lI), jetPhi1_p->at(lI), leadingJtEta_, leadingJtPhi_) > 1.) continue;
-	  if(matchedL1Pt_[0] < jetEt1_p->at(lI)) matchedL1Pt_[0] = jetEt1_p->at(lI);
-	}
-
-	for(unsigned int lI = 0; lI < jetEt2_p->size(); ++lI){
-	  if(getDR(jetEta2_p->at(lI), jetPhi2_p->at(lI), leadingJtEta_, leadingJtPhi_) > 1.) continue;
-	  if(matchedL1Pt_[1] < jetEt2_p->at(lI)) matchedL1Pt_[1] = jetEt2_p->at(lI);
+       	  for(unsigned int jI = 0; jI < jetEt_p.at(lI)->size(); ++jI){
+	    if(getDR(jetEta_p.at(lI)->at(jI), jetPhi_p.at(lI)->at(jI), leadingJtEta_, leadingJtPhi_) > 100.) continue;
+	    if(matchedL1Pt_[lI] < jetEt_p.at(lI)->at(jI)) matchedL1Pt_[lI] = jetEt_p.at(lI)->at(jI);
+	  }
 	}
 
 	for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	  for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
-	    if(matchedL1Pt_[lI] > l1JetThresholds[tI]) jetPt_Trig_h[i][lI][tI]->Fill(leadingJtPt_);
+	    if(matchedL1Pt_[lI] > l1JetThresholds[tI]) jetPt_Trig_h[i][lI][tI]->Fill(leadingRawPt_);
+	    else if(leadingRawPt_ > 80 && matchedL1Pt_[lI] < l1JetThresholds[tI] && lI == nL1Algo-1){
+	      std::cout << "Missed by " << l1AlgoStr[lI] << ", " << l1JetThresholds[tI] << ": " << leadingRawPt_ << ", " << leadingJtPhi_ << ", " << leadingJtEta_ << std::endl;
+	      std::cout << " Entry: " << entry << std::endl;
+	      break;
+	    }
 	    else break;
 	  }
 	}
@@ -358,14 +504,10 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   forestFile_p->Close();
   delete forestFile_p;
 
-  inL1Algo1_p->Close();
-  delete inL1Algo1_p;
-
-  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
-
-  inL1Algo2_p->Close();
-  delete inL1Algo2_p;
-
+  for(Int_t lI = 0; lI < nL1Algo; ++lI){
+    inL1Algo_p[lI]->Close();
+    delete inL1Algo_p[lI];
+  }
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
   outFile_p->cd();
@@ -389,9 +531,18 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
   for(Int_t jI = 0; jI < nJetAlgos; ++jI){
     jetPt_h[jI]->Write("", TObject::kOverwrite);
 
-    for(Int_t lI = 0; lI < nL1Algo; ++lI){
-      for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
+    for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
+      std::vector<TH1*> temp;
+      for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	jetPt_Trig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
+	temp.push_back(jetPt_Trig_h[jI][lI][tI]);
+      }
+	
+      std::string jetLabel = "Offline Jet " + jetAlgos[jI] + "; L1 Algo. p_{T} > " + prettyString(l1JetThresholds[tI], 0, false);
+      turnOnToCanv(outFile_p, jetPt_h[jI], temp, prettyString(l1JetThresholds[tI], 0, true), jetLabel, jetAlgos[jI]);
+      temp.clear();
+      
+      for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	delete jetPt_Trig_h[jI][lI][tI];
       }
     }
@@ -409,13 +560,16 @@ int l1Comp(const std::string inL1Algo1Name, const std::string inL1Algo2Name, con
 
 int main(int argc, char* argv[])
 {
-  if(argc != 4 && argc != 5){
-    std::cout << "Usage: ./l1Comp.exe <inL1Algo1Name> <inL1Algo2Name> <inForestName> <outFileName-optional>" << std::endl;
+  if(argc < 3){
+    std::cout << "Usage: ./l1Comp.exe <inForestName> <endlessInL1Algos>" << std::endl;
     return 1;
   }
 
-  int retVal = 0;
-  if(argc == 4) retVal += l1Comp(argv[1], argv[2], argv[3]);
-  else if(argc == 5) retVal += l1Comp(argv[1], argv[2], argv[3], argv[4]);
+  std::vector<std::string> inputs;
+  for(Int_t i = 2; i < argc; ++i){
+    inputs.push_back(argv[i]);
+  }
+
+  int retVal = l1Comp(argv[1], inputs);
   return retVal;
 }
