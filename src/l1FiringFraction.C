@@ -5,23 +5,28 @@
 #include "TFile.h"
 #include "TTree.h"
 
+#include "include/L1AnalysisL1UpgradeDataFormat.h"
+#include "include/mntToXRootdFileString.h"
+
 int l1FiringFraction(const std::string inFileName)
 {
-  TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
-  TTree* l1Tree_p = (TTree*)inFile_p->Get("l1UpgradeEmuTree/L1UpgradeTree");
+  TFile* inFile_p = NULL;
+  inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
   
-  std::vector<float>* jetEt_p=0;
-  std::vector<float>* jetEta_p=0;
-  std::vector<float>* jetPhi_p=0;
-  
-  l1Tree_p->SetBranchStatus("*", 0);
-  l1Tree_p->SetBranchStatus("jetEt", 1);
-  l1Tree_p->SetBranchStatus("jetEta", 1);
-  l1Tree_p->SetBranchStatus("jetPhi", 1);
+  if(inFile_p == NULL){
+    std::cout << "WARNING: File \'" << inFileName << "\' returns NULL. return 1" << std::endl;
+    return 1;
+  }
+  else if(inFile_p->IsZombie()){
+    std::cout << "WARNING: File \'" << inFileName << "\' returns IsZombie. return 1" << std::endl;
+    return 1;
+  }
 
-  l1Tree_p->SetBranchAddress("jetEt", &jetEt_p);
-  l1Tree_p->SetBranchAddress("jetEta", &jetEta_p);
-  l1Tree_p->SetBranchAddress("jetPhi", &jetPhi_p);
+  TTree* l1Tree_p = (TTree*)inFile_p->Get("l1UpgradeEmuTree/L1UpgradeTree");
+
+  L1Analysis::L1AnalysisL1UpgradeDataFormat* upgrade = new L1Analysis::L1AnalysisL1UpgradeDataFormat();
+  
+  l1Tree_p->SetBranchAddress("L1Upgrade", &(upgrade));
 
   const Int_t nEntries = l1Tree_p->GetEntries();
 
@@ -32,13 +37,16 @@ int l1FiringFraction(const std::string inFileName)
     jetCounts[jI] = 0;
   }
 
+
+  std::cout << "Processing..." << std::endl;
   for(Int_t entry = 0; entry < nEntries; ++entry){
+    if(entry%10000 == 0) std::cout << " Entry " << entry << "/" << nEntries << std::endl;
     l1Tree_p->GetEntry(entry);
 
     Float_t tempLeadingJtPt_ = -999.;
 
-    for(unsigned int jI = 0; jI < jetEt_p->size(); ++jI){
-      if(jetEt_p->at(jI) > tempLeadingJtPt_) tempLeadingJtPt_ = jetEt_p->at(jI);
+    for(unsigned int jI = 0; jI < upgrade->jetEt.size(); ++jI){
+      if(upgrade->jetEt.at(jI) > tempLeadingJtPt_) tempLeadingJtPt_ = upgrade->jetEt.at(jI);
     }
     
     for(Int_t jI = 0; jI < nJetThresholds; ++jI){

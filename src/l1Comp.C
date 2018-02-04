@@ -14,6 +14,9 @@
 #include "TLatex.h"
 #include "TLegend.h"
 
+#include "include/L1AnalysisEventDataFormat.h"
+#include "include/L1AnalysisL1UpgradeDataFormat.h"
+#include "include/mntToXRootdFileString.h"
 #include "include/doGlobalDebug.h"
 #include "include/runLumiEvtKey.h"
 #include "include/returnRootFileContentsList.h"
@@ -187,7 +190,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   delete date;
 
   //Quickly grab number of jet algorithms + tree names in forest
-  TFile* forestFile_p = new TFile(inForestName.c_str(), "READ");
+  TFile* forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");
   std::vector<std::string> jetTreeStr = removeDuplicates(returnRootFileContentsList(forestFile_p, "TTree", "JetAnalyzer"));
   forestFile_p->Close();
   delete forestFile_p;
@@ -213,7 +216,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     l1AlgoMap[i] = new runLumiEvtKey();
   }
   
-  TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
+  TFile* outFile_p = TFile::Open(mntToXRootdFileString(outFileName).c_str(), "RECREATE");
   const Int_t nL1PtBins2D = 3;
   const Double_t l1PtBins2DLow[nL1PtBins2D+1] = { 8.,  8., 24.,  40.};
   const Double_t l1PtBins2DHi[nL1PtBins2D+1] = {200., 24., 40., 200.};
@@ -263,67 +266,43 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   TFile* inL1Algo_p[nL1Algo];
   TTree* inL1AlgoEvtTree_p[nL1Algo];
   TTree* inL1AlgoUpgradeTree_p[nL1Algo];
+
+  L1Analysis::L1AnalysisEventDataFormat* evt[nL1Algo];
+  L1Analysis::L1AnalysisL1UpgradeDataFormat* upgrade[nL1Algo];
+
+
   for(Int_t i = 0; i < nL1Algo; ++i){
     //    std::cout << " Input " << i << ": " << inL1AlgoNames.at(i) << std::endl;
 
     inL1Algo_p[i] = NULL;
-    inL1Algo_p[i] = new TFile(inL1AlgoNames.at(i).c_str(), "READ");
+    inL1Algo_p[i] = TFile::Open(mntToXRootdFileString(inL1AlgoNames.at(i)).c_str(), "READ");
     inL1AlgoEvtTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1EventTree/L1EventTree");
     inL1AlgoUpgradeTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1UpgradeEmuTree/L1UpgradeTree");
+
+    evt[i] = new L1Analysis::L1AnalysisEventDataFormat();
+    upgrade[i] = new L1Analysis::L1AnalysisL1UpgradeDataFormat();
+
+    inL1AlgoEvtTree_p[i]->SetBranchAddress("Event", &(evt[i]));
+    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]));
   }
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
-  UInt_t run_[nL1Algo];
-  UInt_t lumi_[nL1Algo];
-  ULong64_t event_[nL1Algo];
-
-  std::vector< std::vector<float>* > jetEt_p;
-  std::vector< std::vector<float>* > jetEta_p;
-  std::vector< std::vector<float>* > jetPhi_p;
-
-  jetEt_p.reserve(nL1Algo);
-  jetEta_p.reserve(nL1Algo);
-  jetPhi_p.reserve(nL1Algo);
-
-  for(Int_t i = 0; i < nL1Algo; ++i){
-    jetEt_p.push_back(NULL);
-    jetEta_p.push_back(NULL);
-    jetPhi_p.push_back(NULL);
-
-    inL1AlgoEvtTree_p[i]->SetBranchStatus("*", 0);
-    inL1AlgoEvtTree_p[i]->SetBranchStatus("run", 1);
-    inL1AlgoEvtTree_p[i]->SetBranchStatus("lumi", 1);
-    inL1AlgoEvtTree_p[i]->SetBranchStatus("event", 1);
-    
-    inL1AlgoEvtTree_p[i]->SetBranchAddress("run", &(run_[i]));
-    inL1AlgoEvtTree_p[i]->SetBranchAddress("lumi", &(lumi_[i]));
-    inL1AlgoEvtTree_p[i]->SetBranchAddress("event", &(event_[i]));
-    
-    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("*", 0);
-    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEt", 1);
-    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEta", 1);
-    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetPhi", 1);
-    
-    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetEt", &(jetEt_p.at(i)));
-    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetEta", &(jetEta_p.at(i)));
-    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("jetPhi", &(jetPhi_p.at(i)));
-  }
 
   for(Int_t i = 0; i < nL1Algo; ++i){
     for(Int_t entry = 0; entry < inL1AlgoEvtTree_p[i]->GetEntries(); ++entry){
       inL1AlgoEvtTree_p[i]->GetEntry(entry);
       inL1AlgoUpgradeTree_p[i]->GetEntry(entry);
 
-      l1AlgoMap[i]->addKey(run_[i], lumi_[i], event_[i], entry);
+      l1AlgoMap[i]->addKey(evt[i]->run, evt[i]->lumi, evt[i]->event, entry);
 
-      for(unsigned int jI = 0; jI < jetEt_p.at(i)->size(); ++jI){
-	l1JetEt_h[i]->Fill(jetEt_p.at(i)->at(jI));
+      for(unsigned int jI = 0; jI < upgrade[i]->jetEt.size(); ++jI){
+	l1JetEt_h[i]->Fill(upgrade[i]->jetEt.at(jI));
 	
 	for(Int_t lI = 0; lI < nL1PtBins2D+1; ++lI){
-	  if(l1PtBins2DLow[lI] <= jetEt_p.at(i)->at(jI) && jetEt_p.at(i)->at(jI) < l1PtBins2DHi[lI]){
-	    l1JetEta_h[i][lI]->Fill(jetEta_p.at(i)->at(jI));
-	    l1JetPhi_h[i][lI]->Fill(jetPhi_p.at(i)->at(jI));
+	  if(l1PtBins2DLow[lI] <= upgrade[i]->jetEt.at(jI) && upgrade[i]->jetEt.at(jI) < l1PtBins2DHi[lI]){
+	    l1JetEta_h[i][lI]->Fill(upgrade[i]->jetEta.at(jI));
+	    l1JetPhi_h[i][lI]->Fill(upgrade[i]->jetPhi.at(jI));
 	  }
 	}
       }
@@ -353,7 +332,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   Float_t jtPfNEF_[nJetAlgos][nMaxJets];
   Float_t jtPfMUF_[nJetAlgos][nMaxJets];
 
-  forestFile_p = new TFile(inForestName.c_str(), "READ");  
+  forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");  
   TTree* hiTree_p = (TTree*)forestFile_p->Get("hiEvtAnalyzer/HiTree");
   TTree* skimTree_p = (TTree*)forestFile_p->Get("skimanalysis/HltTree");
   TTree* jetTree_p[nJetAlgos];
@@ -478,9 +457,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 	for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	  matchedL1Pt_[lI] = -999.;
 
-       	  for(unsigned int jI = 0; jI < jetEt_p.at(lI)->size(); ++jI){
-	    if(getDR(jetEta_p.at(lI)->at(jI), jetPhi_p.at(lI)->at(jI), leadingJtEta_, leadingJtPhi_) > 100.) continue;
-	    if(matchedL1Pt_[lI] < jetEt_p.at(lI)->at(jI)) matchedL1Pt_[lI] = jetEt_p.at(lI)->at(jI);
+       	  for(unsigned int jI = 0; jI < upgrade[lI]->jetEt.size(); ++jI){
+	    if(getDR(upgrade[lI]->jetEta.at(jI), upgrade[lI]->jetPhi.at(jI), leadingJtEta_, leadingJtPhi_) > 1.5) continue;
+	    if(matchedL1Pt_[lI] < upgrade[lI]->jetEt.at(jI)) matchedL1Pt_[lI] = upgrade[lI]->jetEt.at(jI);
 	  }
 	}
 
