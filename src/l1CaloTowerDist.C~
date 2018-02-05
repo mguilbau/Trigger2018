@@ -78,8 +78,8 @@ int l1CaloTowerDist(const std::string inFileName)
 
     for(unsigned int i = 0; i < towers_->iet.size(); ++i){
       if(towers_->iet.at(i) >= l1PtLow && towers_->iet.at(i) < l1PtHi) l1CaloTowerPt_p->Fill(towers_->iet.at(i), 1./nEntries);
-      if(towers_->iem.at(i) >= l1PtLow && towers_->iem.at(i) < l1PtHi) l1CaloTowerPt_EM_p->Fill(towers_->iem.at(i), 1./nEntries);
-      if(towers_->ihad.at(i) >= l1PtLow && towers_->ihad.at(i) < l1PtHi) l1CaloTowerPt_HAD_p->Fill(towers_->ihad.at(i), 1./nEntries);
+      if(towers_->iem.at(i) >= l1PtLow && towers_->iem.at(i) < l1PtHi) l1CaloTowerPt_p->Fill(towers_->iem.at(i), 1./nEntries);
+      if(towers_->ihad.at(i) >= l1PtLow && towers_->ihad.at(i) < l1PtHi) l1CaloTowerPt_p->Fill(towers_->ihad.at(i), 1./nEntries);
 
       for(Int_t lI = 0; lI < nL1PtBins2; ++lI){
 	if(towers_->iet.at(i) >= l1PtBins2Low[lI] && towers_->iet.at(i) < l1PtBins2Hi[lI]){

@@ -25,7 +25,11 @@ int l1FiringFraction(const std::string inFileName)
   TTree* l1Tree_p = (TTree*)inFile_p->Get("l1UpgradeEmuTree/L1UpgradeTree");
 
   L1Analysis::L1AnalysisL1UpgradeDataFormat* upgrade = new L1Analysis::L1AnalysisL1UpgradeDataFormat();
-  
+
+  l1Tree_p->SetBranchStatus("*", 0);
+  l1Tree_p->SetBranchStatus("L1Upgrade", 1);
+  l1Tree_p->SetBranchStatus("jetEt", 1);
+
   l1Tree_p->SetBranchAddress("L1Upgrade", &(upgrade));
 
   const Int_t nEntries = l1Tree_p->GetEntries();

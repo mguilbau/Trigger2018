@@ -48,8 +48,8 @@ std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 
 std::string getL1AlgoFromFileName(const std::string inFileName)
 {
-  const Int_t nValidAlgo = 6;
-  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPP"};
+  const Int_t nValidAlgo = 7;
+  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPP", "PhiRingHITower"};
 
   const Int_t nParam = 1;
   const std::string param[nParam] = {"SeedThresh2"};
@@ -263,6 +263,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
+  std::cout << "Processing l1 algos..." << std::endl;
+
   TFile* inL1Algo_p[nL1Algo];
   TTree* inL1AlgoEvtTree_p[nL1Algo];
   TTree* inL1AlgoUpgradeTree_p[nL1Algo];
@@ -270,9 +272,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   L1Analysis::L1AnalysisEventDataFormat* evt[nL1Algo];
   L1Analysis::L1AnalysisL1UpgradeDataFormat* upgrade[nL1Algo];
 
-
   for(Int_t i = 0; i < nL1Algo; ++i){
-    //    std::cout << " Input " << i << ": " << inL1AlgoNames.at(i) << std::endl;
+    std::cout << " Input " << i << ": " << inL1AlgoNames.at(i) << std::endl;
 
     inL1Algo_p[i] = NULL;
     inL1Algo_p[i] = TFile::Open(mntToXRootdFileString(inL1AlgoNames.at(i)).c_str(), "READ");
@@ -282,7 +283,21 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     evt[i] = new L1Analysis::L1AnalysisEventDataFormat();
     upgrade[i] = new L1Analysis::L1AnalysisL1UpgradeDataFormat();
 
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("*", 0);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("Event", 1);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("run", 1);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("lumi", 1);
+    inL1AlgoEvtTree_p[i]->SetBranchStatus("event", 1);
+
     inL1AlgoEvtTree_p[i]->SetBranchAddress("Event", &(evt[i]));
+
+
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("*", 0);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("L1Upgrade", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEt", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEta", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetPhi", 1);
+
     inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]));
   }
 
@@ -290,7 +305,11 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
 
   for(Int_t i = 0; i < nL1Algo; ++i){
+    std::cout << "Processing " << i << ": " << inL1AlgoNames.at(i) << std::endl;
+
     for(Int_t entry = 0; entry < inL1AlgoEvtTree_p[i]->GetEntries(); ++entry){
+      if(entry%10000 == 0) std::cout << " Entry " << entry << "/" << inL1AlgoEvtTree_p[i]->GetEntries() << std::endl;
+
       inL1AlgoEvtTree_p[i]->GetEntry(entry);
       inL1AlgoUpgradeTree_p[i]->GetEntry(entry);
 
@@ -308,6 +327,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
       }
     }
   }
+
+  std::cout << "Processing forests..." << std::endl;
 
   UInt_t runF, lumiF;
   ULong64_t eventF;
