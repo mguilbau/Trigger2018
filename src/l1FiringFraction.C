@@ -7,6 +7,7 @@
 
 #include "include/L1AnalysisL1UpgradeDataFormat.h"
 #include "include/mntToXRootdFileString.h"
+#include "include/inToOutFileString.h"
 
 int l1FiringFraction(const std::string inFileName)
 {

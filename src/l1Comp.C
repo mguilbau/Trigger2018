@@ -25,6 +25,7 @@
 #include "include/histDefUtility.h"
 #include "include/etaPhiFunc.h"
 #include "include/kirchnerPalette.h"
+#include "include/inToOutFileString.h"
 
 std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 {
@@ -177,18 +178,13 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     while(inStr[i].find("/") != std::string::npos){inStr[i].replace(0, inStr[i].find("/")+1, "");}
     while(inStr[i].find(".root") != std::string::npos){inStr[i].replace(inStr[i].find(".root"), std::string(".root").size(), "");}
   }
-  std::string outFileName = "l1Comp_";
+  std::string outFileName = "L1ALGOCOMP_";
   for(Int_t i = 0; i < nInStr-1; ++i){
     outFileName = outFileName + getL1AlgoFromFileName(inStr[i]) + "_";
   }
-  outFileName = outFileName + inStr[nInStr-1];
+  outFileName.replace(outFileName.size()-1, 1, "");
+  outFileName = "output/" + inToOutFileString(inForestName, outFileName);
   
-  //append date to ouptut for simple versioning
-  if(outFileName.find(".root") != std::string::npos) outFileName.replace(outFileName.find(".root"), std::string(".root").size(), "");
-  TDatime* date = new TDatime();
-  outFileName = outFileName + "_" + std::to_string(date->GetDate()) + ".root";
-  delete date;
-
   //Quickly grab number of jet algorithms + tree names in forest
   TFile* forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");
   std::vector<std::string> jetTreeStr = removeDuplicates(returnRootFileContentsList(forestFile_p, "TTree", "JetAnalyzer"));

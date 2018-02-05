@@ -12,17 +12,12 @@
 #include "include/L1AnalysisL1CaloTowerDataFormat.h"
 #include "include/plotUtilities.h"
 #include "include/histDefUtility.h"
+#include "include/inToOutFileString.h"
 
 int l1CaloTowerDist(const std::string inFileName)
 {
   TDatime* date = new TDatime();
-  std::string outFileName = inFileName;
-  while(outFileName.find("/") != std::string::npos){outFileName.replace(0, outFileName.find("/")+1, "");}
-  if(outFileName.find(".root") != std::string::npos){
-    outFileName.replace(outFileName.find(".root"), std::string(".root").size(), "");
-    outFileName = outFileName + "_L1CaloTowerDist_" + std::to_string(date->GetDate()) + ".root";
-  }
-
+  std::string outFileName = "output/" + inToOutFileString(inFileName, "L1CALOTOWER");
   TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
 
   const Int_t nL1PtBins = 50;
