@@ -26,6 +26,7 @@
 #include "include/etaPhiFunc.h"
 #include "include/kirchnerPalette.h"
 #include "include/inToOutFileString.h"
+#include "include/textFileToVector.h"
 
 std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 {
@@ -49,8 +50,8 @@ std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 
 std::string getL1AlgoFromFileName(const std::string inFileName)
 {
-  const Int_t nValidAlgo = 7;
-  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPP", "PhiRingHITower"};
+  const Int_t nValidAlgo = 9;
+  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPPTowerMask", "PhiRingPP", "PhiRingHITower", "PhiRingHIRegion"};
 
   const Int_t nParam = 1;
   const std::string param[nParam] = {"SeedThresh2"};
@@ -83,6 +84,11 @@ std::string getL1AlgoFromFileName(const std::string inFileName)
 
 void turnOnToCanv(TFile* inFile_p, TH1* inHistDenom_p, std::vector<TH1*> inHistNum_p, std::string ptThresh, std::string jetLabel, std::string jetLabel2)
 {
+  if(inHistNum_p.size() == 0){
+    std::cout << "WARNING: input vector of numerators is empty. return" << std::endl;
+    return;
+  }
+
   kirchnerPalette col;
   TLegend* leg_p = new TLegend(.6, .2, .9, .5);
   leg_p->SetTextFont(43);
@@ -97,10 +103,14 @@ void turnOnToCanv(TFile* inFile_p, TH1* inHistDenom_p, std::vector<TH1*> inHistN
   hist_p->SetMinimum(0.0);
   hist_p->SetMaximum(1.1);
 
+  std::string histName = inHistNum_p.at(0)->GetName();
   std::string canvStr = "canv";
   for(unsigned int i = 0; i < inHistNum_p.size(); ++i){
-    canvStr = canvStr + "_" + getL1AlgoFromFileName(inHistNum_p.at(i)->GetName());
+    canvStr = canvStr + "_" + getL1AlgoFromFileName(histName);
   }
+
+  if(histName.find("Match") != std::string::npos) canvStr = canvStr + "_DRMatch";
+
   canvStr = canvStr + "_Pt" + ptThresh + "_TurnOn_c";
   TCanvas* canv_p = new TCanvas(canvStr.c_str(), canvStr.c_str(), 500, 500);
   gStyle->SetOptStat(0);
@@ -222,6 +232,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   TH1F* l1JetPhi_h[nL1Algo][nL1PtBins2D+1];
   TH1F* jetPt_h[nJetAlgos];
   TH1F* jetPt_Trig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
+  TH1F* jetPt_MatchTrig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
+  TH1F* nJet_MissedTrig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
+  TH1F* allJetEta_MissedTrig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
 
   for(Int_t i = 0; i < nL1Algo; ++i){
     l1JetEt_h[i] = new TH1F(("l1JetEt_" + l1AlgoStr[i] + "_h").c_str(), (";L1 Jet E_{T} (" + l1AlgoStr[i] + ");Counts").c_str(), 50, 20, 120);
@@ -252,7 +265,14 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     for(Int_t lI = 0; lI < nL1Algo; ++lI){
       for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
 	jetPt_Trig_h[jI][lI][tI] = new TH1F(("jetPt_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";Jet p_{T} w/ Trigger " + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts").c_str(), nJtPtBins, jtPtBins);
-	centerTitles({jetPt_Trig_h[jI][lI][tI]});
+
+	jetPt_MatchTrig_h[jI][lI][tI] = new TH1F(("jetPt_Match_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";Jet p_{T} w/ Trigger " + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts").c_str(), nJtPtBins, jtPtBins);
+
+	nJet_MissedTrig_h[jI][lI][tI] = new TH1F(("nJet_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";nJets for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts").c_str(), 15, -1.5, 13.5);
+
+	allJetEta_MissedTrig_h[jI][lI][tI] = new TH1F(("allJetEta_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";All L1 Jet #eta for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts").c_str(), 201, -100.5, 100.5);
+
+	centerTitles({jetPt_Trig_h[jI][lI][tI], jetPt_MatchTrig_h[jI][lI][tI], nJet_MissedTrig_h[jI][lI][tI], allJetEta_MissedTrig_h[jI][lI][tI]});
       }
     }
   }
@@ -290,8 +310,10 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("*", 0);
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("L1Upgrade", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("nJets", 1);
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEt", 1);
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetEta", 1);
+    inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetIEta", 1);
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetPhi", 1);
 
     inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]));
@@ -470,11 +492,14 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
       if(leadingRawPt_ > jtPtLow && leadingRawPt_ < jtPtHi){
 	jetPt_h[i]->Fill(leadingRawPt_);
 
+	Float_t unmatchedL1Pt_[nL1Algo];
 	Float_t matchedL1Pt_[nL1Algo];
 	for(Int_t lI = 0; lI < nL1Algo; ++lI){
+	  unmatchedL1Pt_[lI] = -999.;
 	  matchedL1Pt_[lI] = -999.;
 
        	  for(unsigned int jI = 0; jI < upgrade[lI]->jetEt.size(); ++jI){
+	    if(unmatchedL1Pt_[lI] < upgrade[lI]->jetEt.at(jI)) unmatchedL1Pt_[lI] = upgrade[lI]->jetEt.at(jI);
 	    if(getDR(upgrade[lI]->jetEta.at(jI), upgrade[lI]->jetPhi.at(jI), leadingJtEta_, leadingJtPhi_) > 1.5) continue;
 	    if(matchedL1Pt_[lI] < upgrade[lI]->jetEt.at(jI)) matchedL1Pt_[lI] = upgrade[lI]->jetEt.at(jI);
 	  }
@@ -482,13 +507,21 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
 	for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	  for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
-	    if(matchedL1Pt_[lI] > l1JetThresholds[tI]) jetPt_Trig_h[i][lI][tI]->Fill(leadingRawPt_);
+	    if(unmatchedL1Pt_[lI] > l1JetThresholds[tI]) jetPt_Trig_h[i][lI][tI]->Fill(leadingRawPt_);
+
+	    if(matchedL1Pt_[lI] > l1JetThresholds[tI]) jetPt_MatchTrig_h[i][lI][tI]->Fill(leadingRawPt_);
 	    else if(leadingRawPt_ > 80 && matchedL1Pt_[lI] < l1JetThresholds[tI] && lI == nL1Algo-1){
 	      std::cout << "Missed by " << l1AlgoStr[lI] << ", " << l1JetThresholds[tI] << ": " << leadingRawPt_ << ", " << leadingJtPhi_ << ", " << leadingJtEta_ << std::endl;
-	      std::cout << " Entry: " << entry << std::endl;
-	      break;
+	      std::cout << " Entry Forest: " << entry << std::endl;
+	      std::cout << " Entry L1: " << entryL1Algos[lI] << std::endl;
+
+	      nJet_MissedTrig_h[i][lI][tI]->Fill(upgrade[lI]->nJets);
+
+	      for(unsigned int jI = 0; jI < upgrade[lI]->jetIEta.size(); ++jI){
+		allJetEta_MissedTrig_h[i][lI][tI]->Fill(upgrade[lI]->jetIEta.at(jI));
+	      }
+
 	    }
-	    else break;
 	  }
 	}
       }
@@ -529,17 +562,29 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
     for(Int_t tI = 0; tI < nL1JetThresholds; ++tI){
       std::vector<TH1*> temp;
+      std::vector<TH1*> tempMatch;
       for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	jetPt_Trig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
+	jetPt_MatchTrig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
+	nJet_MissedTrig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
+	allJetEta_MissedTrig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
+
 	temp.push_back(jetPt_Trig_h[jI][lI][tI]);
+	tempMatch.push_back(jetPt_MatchTrig_h[jI][lI][tI]);
       }
 	
       std::string jetLabel = "Offline Jet " + jetAlgos[jI] + "; L1 Algo. p_{T} > " + prettyString(l1JetThresholds[tI], 0, false);
+      std::string jetLabelMatch = "Offline Jet " + jetAlgos[jI] + "; L1 Algo. p_{T} > " + prettyString(l1JetThresholds[tI], 0, false) + ", #DeltaR Match";
       turnOnToCanv(outFile_p, jetPt_h[jI], temp, prettyString(l1JetThresholds[tI], 0, true), jetLabel, jetAlgos[jI]);
+      turnOnToCanv(outFile_p, jetPt_h[jI], tempMatch, prettyString(l1JetThresholds[tI], 0, true), jetLabelMatch, jetAlgos[jI]);
       temp.clear();
+      tempMatch.clear();
       
       for(Int_t lI = 0; lI < nL1Algo; ++lI){
+	delete nJet_MissedTrig_h[jI][lI][tI];
+	delete allJetEta_MissedTrig_h[jI][lI][tI];
 	delete jetPt_Trig_h[jI][lI][tI];
+	delete jetPt_MatchTrig_h[jI][lI][tI];
       }
     }
 
@@ -563,7 +608,19 @@ int main(int argc, char* argv[])
 
   std::vector<std::string> inputs;
   for(Int_t i = 2; i < argc; ++i){
-    inputs.push_back(argv[i]);
+    std::string fileName = argv[i];
+    if(fileName.find(".root") != std::string::npos) inputs.push_back(fileName);
+    else if(fileName.find(".txt") != std::string::npos) textFileToVectorAppend(&inputs, fileName, ".root");
+  }
+
+  std::cout << "INPUTS: " << std::endl;
+  for(unsigned int i = 0; i < inputs.size(); ++i){
+    std::cout << " " << i << ": " << inputs.at(i) << std::endl;
+  }
+
+  if(inputs.size() == 0){
+    std::cout << "WARNING: Given set of inputs contains no valid .root files. return 1" << std::endl;
+    return 1;
   }
 
   int retVal = l1Comp(argv[1], inputs);
