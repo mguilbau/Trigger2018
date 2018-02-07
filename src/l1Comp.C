@@ -27,6 +27,7 @@
 #include "include/kirchnerPalette.h"
 #include "include/inToOutFileString.h"
 #include "include/textFileToVector.h"
+#include "include/cppWatch.h"
 
 std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
 {
@@ -309,6 +310,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
   L1Analysis::L1AnalysisEventDataFormat* evt[nL1Algo];
   L1Analysis::L1AnalysisL1UpgradeDataFormat* upgrade[nL1Algo];
+  TBranch* b_upgrade[nL1Algo];
 
   for(Int_t i = 0; i < nL1Algo; ++i){
     std::cout << " Input " << i << ": " << inL1AlgoNames.at(i) << std::endl;
@@ -317,9 +319,12 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     inL1Algo_p[i] = TFile::Open(mntToXRootdFileString(inL1AlgoNames.at(i)).c_str(), "READ");
     inL1AlgoEvtTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1EventTree/L1EventTree");
     inL1AlgoUpgradeTree_p[i] = (TTree*)inL1Algo_p[i]->Get("l1UpgradeEmuTree/L1UpgradeTree");
+    inL1AlgoEvtTree_p[i]->SetMaxVirtualSize(4000000000);
+    inL1AlgoUpgradeTree_p[i]->SetMaxVirtualSize(4000000000);
 
     evt[i] = new L1Analysis::L1AnalysisEventDataFormat();
     upgrade[i] = new L1Analysis::L1AnalysisL1UpgradeDataFormat();
+    b_upgrade[i]=NULL;
 
     inL1AlgoEvtTree_p[i]->SetBranchStatus("*", 0);
     inL1AlgoEvtTree_p[i]->SetBranchStatus("Event", 1);
@@ -338,7 +343,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetIEta", 1);
     inL1AlgoUpgradeTree_p[i]->SetBranchStatus("jetPhi", 1);
 
-    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]));
+    inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]), &(b_upgrade[i]));
+    //    b_upgrade[i]->LoadBaskets();
+    //    inL1AlgoUpgradeTree_p[i]->GetBranch("L1Upgrade")->LoadBaskets();
   }
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
@@ -384,7 +391,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
   forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");  
   TTree* hiTree_p = (TTree*)forestFile_p->Get("hiEvtAnalyzer/HiTree");
+  hiTree_p->SetMaxVirtualSize(4000000000);
   TTree* skimTree_p = (TTree*)forestFile_p->Get("skimanalysis/HltTree");
+  skimTree_p->SetMaxVirtualSize(4000000000);
   TTree* jetTree_p[nJetAlgos];
 
   hiTree_p->SetBranchStatus("*", 0);
@@ -413,6 +422,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
   for(unsigned int i = 0; i < jetTreeStr.size(); ++i){
     jetTree_p[i] = (TTree*)forestFile_p->Get(jetTreeStr.at(i).c_str());
+    jetTree_p[i]->SetMaxVirtualSize(4000000000);
 
     jetTree_p[i]->SetBranchStatus("*", 0);
     jetTree_p[i]->SetBranchStatus("nref", 1);
@@ -643,6 +653,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
 int main(int argc, char* argv[])
 {
+  cppWatch timer;
+  timer.start();
+
   if(argc < 3){
     std::cout << "Usage: ./l1Comp.exe <inForestName> <endlessInL1Algos>" << std::endl;
     return 1;
@@ -666,5 +679,9 @@ int main(int argc, char* argv[])
   }
 
   int retVal = l1Comp(argv[1], inputs);
+
+  timer.stop();
+  std::cout << "Timer: " << timer.total() << std::endl;
+
   return retVal;
 }
