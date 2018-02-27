@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "TFile.h"
 #include "TTree.h"
@@ -49,10 +50,21 @@ std::vector<std::string> removeDuplicates(std::vector<std::string> inStr)
   return inStr;
 }
 
+std::vector<std::string> filterStrings(std::vector<std::string> inVect, std::string filterStr, bool remove)
+{
+  std::vector<std::string> outVect;
+  for(unsigned int i = 0; i < inVect.size(); ++i){
+    if(inVect.at(i).find(filterStr) == std::string::npos && remove) outVect.push_back(inVect.at(i));
+    else if(inVect.at(i).find(filterStr) != std::string::npos && !remove) outVect.push_back(inVect.at(i));
+  }
+  return outVect;
+}
+
+
 std::string getL1AlgoFromFileName(const std::string inFileName)
 {
-  const Int_t nValidAlgo = 9;
-  const std::string validAlgo[nValidAlgo] = {"None", "Donut", "ChunkyDonut", "PhiRingPPExclude", "PhiRingPPTower", "PhiRingPPTowerMask", "PhiRingPP", "PhiRingHITower", "PhiRingHIRegion"};
+  const Int_t nValidAlgo = 10;
+  const std::string validAlgo[nValidAlgo] = {"None", "ChunkyDonut", "Donut", "PhiRingPPExclude", "PhiRingPPTowerMask", "PhiRingPPTowerMedian", "PhiRingPPTower", "PhiRingPP", "PhiRingHITower", "PhiRingHIRegion"};
 
   const Int_t nParam = 1;
   const std::string param[nParam] = {"SeedThresh2"};
@@ -184,6 +196,9 @@ void turnOnToCanv(TFile* inFile_p, TH1* inHistDenom_p, std::vector<TH1*> inHistN
 
 int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoNames)
 {
+  std::ofstream file899("outputDrops899.txt");
+  std::ofstream file906("outputDrops906.txt");
+
   //handling the output file in event none is specified
   const Int_t nInStr = 1+inL1AlgoNames.size();
   std::string inStr[nInStr];
@@ -204,6 +219,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   //Quickly grab number of jet algorithms + tree names in forest
   TFile* forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");
   std::vector<std::string> jetTreeStr = removeDuplicates(returnRootFileContentsList(forestFile_p, "TTree", "JetAnalyzer"));
+  jetTreeStr = filterStrings(jetTreeStr, "Pu", true);
+  jetTreeStr = filterStrings(jetTreeStr, "PU", true);
   forestFile_p->Close();
   delete forestFile_p;
 
@@ -245,6 +262,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   TH1F* jetPt_Trig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
   TH1F* jetPt_MatchTrig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
   TH1F* nJet_MissedTrig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
+  TH1F* leadingTrk_MissedTrig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
+  TH1F* leadingTrkGood_MissedTrig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
   TH1F* hiBin_MissedTrig_h[nJetAlgos][nL1Algo][nL1JetThresholds];
   TH1F* allJetEta_MissedTrig_h[nJetAlgos][nL1Algo][nCentBins][nL1JetThresholds];
 
@@ -268,9 +287,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
     }
   }
 
-  const Int_t nJtPtBins = 19;
-  const Float_t jtPtLow = 25;
-  const Float_t jtPtHi = 120;
+  const Int_t nJtPtBins = 17;
+  const Float_t jtPtLow = 15;
+  const Float_t jtPtHi = 100;
   Double_t jtPtBins[nJtPtBins+1];
   getLinBins(jtPtLow, jtPtHi, nJtPtBins, jtPtBins);
 
@@ -290,11 +309,16 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 	  
 	  nJet_MissedTrig_h[jI][lI][cI][tI] = new TH1F(("nJet_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_" + centStr + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";nJets for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts (" + centStr2 + ")").c_str(), 15, -1.5, 13.5);
 
+	  leadingTrk_MissedTrig_h[jI][lI][cI][tI] = new TH1F(("leadingTrk_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_" + centStr + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";Leading Trk p_{T} for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts (" + centStr2 + ")").c_str(), 40, 5, 205);
+
+	  leadingTrkGood_MissedTrig_h[jI][lI][cI][tI] = new TH1F(("leadingTrkGood_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_" + centStr + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";Good Leading Trk p_{T} for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts (" + centStr2 + ")").c_str(), 40, 5, 205);
+
+
 	  if(cI == 0) hiBin_MissedTrig_h[jI][lI][tI] = new TH1F(("hiBin_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";hiBin for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts").c_str(), 200, -0.5, 199.5);
 	  
 	  allJetEta_MissedTrig_h[jI][lI][cI][tI] = new TH1F(("allJetEta_Missed_" + jetAlgos[jI] + "_" + l1AlgoStr[lI] + "_" + centStr + "_Pt" + prettyString(l1JetThresholds[tI], 1, true) + "_h").c_str(), (";All L1 Jet #eta for missed w/" + l1AlgoStr[lI] + ", L1 p_{T} > " + prettyString(l1JetThresholds[tI], 1, false) + " (" + jetAlgos[jI] + ");Counts (" + centStr2 + ")").c_str(), 201, -100.5, 100.5);
 	  
-	  centerTitles({jetPt_Trig_h[jI][lI][cI][tI], jetPt_MatchTrig_h[jI][lI][cI][tI], nJet_MissedTrig_h[jI][lI][cI][tI], hiBin_MissedTrig_h[jI][lI][tI], allJetEta_MissedTrig_h[jI][lI][cI][tI]});
+	  centerTitles({jetPt_Trig_h[jI][lI][cI][tI], jetPt_MatchTrig_h[jI][lI][cI][tI], nJet_MissedTrig_h[jI][lI][cI][tI], leadingTrk_MissedTrig_h[jI][lI][cI][tI], leadingTrkGood_MissedTrig_h[jI][lI][cI][tI], hiBin_MissedTrig_h[jI][lI][tI], allJetEta_MissedTrig_h[jI][lI][cI][tI]});
 	}
       }
     }
@@ -345,7 +369,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
     inL1AlgoUpgradeTree_p[i]->SetBranchAddress("L1Upgrade", &(upgrade[i]), &(b_upgrade[i]));
     //    b_upgrade[i]->LoadBaskets();
-    //    inL1AlgoUpgradeTree_p[i]->GetBranch("L1Upgrade")->LoadBaskets();
+    inL1AlgoUpgradeTree_p[i]->GetBranch("L1Upgrade")->LoadBaskets();
   }
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
@@ -389,12 +413,24 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   Float_t jtPfNEF_[nJetAlgos][nMaxJets];
   Float_t jtPfMUF_[nJetAlgos][nMaxJets];
 
+  const Int_t nMaxTrks = 100000;
+  Int_t nTrk_;
+  Float_t trkPt_[nMaxTrks];
+  Float_t trkPhi_[nMaxTrks];
+  Float_t trkEta_[nMaxTrks];
+  Bool_t highPurity_[nMaxTrks];
+  UChar_t trkNHit_[nMaxTrks];
+  Float_t pfEcal_[nMaxTrks];
+  Float_t pfHcal_[nMaxTrks];
+
   forestFile_p = TFile::Open(mntToXRootdFileString(inForestName).c_str(), "READ");  
   TTree* hiTree_p = (TTree*)forestFile_p->Get("hiEvtAnalyzer/HiTree");
   hiTree_p->SetMaxVirtualSize(4000000000);
   TTree* skimTree_p = (TTree*)forestFile_p->Get("skimanalysis/HltTree");
   skimTree_p->SetMaxVirtualSize(4000000000);
   TTree* jetTree_p[nJetAlgos];
+  TTree* trackTree_p = (TTree*)forestFile_p->Get("ppTrack/trackTree");
+  trackTree_p->SetMaxVirtualSize(4000000000);
 
   hiTree_p->SetBranchStatus("*", 0);
   hiTree_p->SetBranchStatus("run", 1);
@@ -451,6 +487,26 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
       jetTree_p[i]->SetBranchAddress("jtPfMUF", jtPfMUF_[i]);
     }
   }
+
+
+  trackTree_p->SetBranchStatus("*", 0);
+  trackTree_p->SetBranchStatus("nTrk", 1);
+  trackTree_p->SetBranchStatus("trkPt", 1);
+  trackTree_p->SetBranchStatus("trkPhi", 1);
+  trackTree_p->SetBranchStatus("trkEta", 1);
+  trackTree_p->SetBranchStatus("highPurity", 1);
+  trackTree_p->SetBranchStatus("trkNHit", 1);
+  trackTree_p->SetBranchStatus("pfEcal", 1);
+  trackTree_p->SetBranchStatus("pfHcal", 1);
+
+  trackTree_p->SetBranchAddress("nTrk", &nTrk_);
+  trackTree_p->SetBranchAddress("trkPt", trkPt_);
+  trackTree_p->SetBranchAddress("trkPhi", trkPhi_);
+  trackTree_p->SetBranchAddress("trkEta", trkEta_);
+  trackTree_p->SetBranchAddress("highPurity", highPurity_);
+  trackTree_p->SetBranchAddress("trkNHit", trkNHit_);
+  trackTree_p->SetBranchAddress("pfEcal", pfEcal_);
+  trackTree_p->SetBranchAddress("pfHcal", pfHcal_);
 
   const Int_t nEntriesForest = hiTree_p->GetEntries();
 
@@ -543,7 +599,7 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 
        	  for(unsigned int jI = 0; jI < upgrade[lI]->jetEt.size(); ++jI){
 	    if(unmatchedL1Pt_[lI] < upgrade[lI]->jetEt.at(jI)) unmatchedL1Pt_[lI] = upgrade[lI]->jetEt.at(jI);
-	    if(getDR(upgrade[lI]->jetEta.at(jI), upgrade[lI]->jetPhi.at(jI), leadingJtEta_, leadingJtPhi_) > 1.5) continue;
+	    if(getDR(upgrade[lI]->jetEta.at(jI), upgrade[lI]->jetPhi.at(jI), leadingJtEta_, leadingJtPhi_) > 1.) continue;
 	    if(matchedL1Pt_[lI] < upgrade[lI]->jetEt.at(jI)) matchedL1Pt_[lI] = upgrade[lI]->jetEt.at(jI);
 	  }
 	}
@@ -558,8 +614,43 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 	      std::cout << " Entry Forest: " << entry << std::endl;
 	      std::cout << " Entry L1: " << entryL1Algos[lI] << std::endl;
 
+	      if(runF == 304899) file899 << runF << ":" << lumiF << ":" << eventF << std::endl
+;	      if(runF == 304906) file906 << runF << ":" << lumiF << ":" << eventF << std::endl;
+
 	      nJet_MissedTrig_h[i][lI][centPos][tI]->Fill(upgrade[lI]->nJets);
 	      hiBin_MissedTrig_h[i][lI][tI]->Fill(hiBin_);
+
+	      trackTree_p->GetEntry(entry);
+
+	      Float_t leadingTrkPt_ = 5.;
+	      Float_t leadingTrkEta_ = -999.;
+	      Int_t leadingTrkNHit_ = -1;
+	      Float_t leadingTrkEcal_ = -999.;
+	      Float_t leadingTrkHcal_ = -999.;	      
+	      
+	      for(Int_t tI = 0; tI < nTrk_; ++tI){
+		if(trkPt_[tI] < leadingTrkPt_) continue;
+		if(getDR(trkEta_[tI], trkPhi_[tI], leadingJtEta_, leadingJtPhi_) > .4) continue;
+		if(!highPurity_[tI]) continue;
+		
+		leadingTrkPt_ = trkPt_[tI];
+		leadingTrkEta_ = trkEta_[tI];
+		leadingTrkNHit_ = trkNHit_[tI];
+		leadingTrkEcal_ = pfEcal_[tI];
+		leadingTrkHcal_ = pfHcal_[tI];
+	      }
+
+	      if(leadingTrkPt_ > 5. && leadingTrkEta_ > -998){
+		leadingTrk_MissedTrig_h[i][lI][centPos][tI]->Fill(leadingTrkPt_);
+		
+		if(leadingTrkPt_ > 100) std::cout << "BIG MISS!" << std::endl;
+
+		if(leadingTrkNHit_ < 12){
+		  if((leadingTrkHcal_ + leadingTrkEcal_)/(leadingTrkPt_*TMath::CosH(leadingTrkEta_)) > .5){
+		    leadingTrkGood_MissedTrig_h[i][lI][centPos][tI]->Fill(leadingTrkPt_);
+		  }
+		}
+	      }
 
 	      for(unsigned int jI = 0; jI < upgrade[lI]->jetIEta.size(); ++jI){
 		allJetEta_MissedTrig_h[i][lI][centPos][tI]->Fill(upgrade[lI]->jetIEta.at(jI));
@@ -616,6 +707,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 	  jetPt_Trig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
 	  jetPt_MatchTrig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
 	  nJet_MissedTrig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
+	  leadingTrk_MissedTrig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
+	  leadingTrkGood_MissedTrig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
 	  if(cI == 0) hiBin_MissedTrig_h[jI][lI][tI]->Write("", TObject::kOverwrite);
 	  allJetEta_MissedTrig_h[jI][lI][cI][tI]->Write("", TObject::kOverwrite);
 	  
@@ -632,6 +725,8 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
 	
 	for(Int_t lI = 0; lI < nL1Algo; ++lI){
 	  delete nJet_MissedTrig_h[jI][lI][cI][tI];
+	  delete leadingTrk_MissedTrig_h[jI][lI][cI][tI];
+	  delete leadingTrkGood_MissedTrig_h[jI][lI][cI][tI];
 	  if(cI == 0) delete hiBin_MissedTrig_h[jI][lI][tI];
 	  delete allJetEta_MissedTrig_h[jI][lI][cI][tI];
 	  delete jetPt_Trig_h[jI][lI][cI][tI];
@@ -647,6 +742,9 @@ int l1Comp(const std::string inForestName, std::vector<std::string> inL1AlgoName
   delete outFile_p;
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
+
+  file899.close();
+  file906.close();
 
   return 0;
 }
