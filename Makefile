@@ -12,7 +12,7 @@ MKDIR_BIN = mkdir -p $(PWD)/bin
 MKDIR_PDFDIR = mkdir -p $(PWD)/pdfDir
 MKDIR_OUTPUT = mkdir -p $(PWD)/output
 
-all: mkdirBin mkdirOutput mkdirPdfdir l1Comp l1FiringFraction l1CaloTowerDist
+all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -23,13 +23,16 @@ mkdirOutput:
 mkdirPdfdir:
 	$(MKDIR_PDFDIR)
 
-l1Comp: src/l1Comp.C
+bin/l1Comp.exe: src/l1Comp.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1Comp.exe src/l1Comp.C
 
-l1FiringFraction: src/l1FiringFraction.C
+bin/l1OfflineSubtract.exe: src/l1OfflineSubtract.C
+	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1OfflineSubtract.exe src/l1OfflineSubtract.C
+
+bin/l1FiringFraction.exe: src/l1FiringFraction.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1FiringFraction.exe src/l1FiringFraction.C
 
-l1CaloTowerDist: src/l1CaloTowerDist.C
+bin/l1CaloTowerDist.exe: src/l1CaloTowerDist.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1CaloTowerDist.exe src/l1CaloTowerDist.C
 
 clean:
