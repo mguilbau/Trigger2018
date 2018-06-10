@@ -8,8 +8,10 @@
 #include "TH1F.h"
 #include "TTree.h"
 #include "TMath.h"
+#include "TDatime.h"
 
 #include "include/doGlobalDebug.h"
+#include "include/L1Tools.h"
 #include "include/mntToXRootdFileString.h"
 #include "include/L1AnalysisEventDataFormat.h"
 #include "include/L1AnalysisL1CaloTowerDataFormat.h"
@@ -27,67 +29,39 @@ const int mask_[9][9] = {
   { 1,1,1,1,1,1,1,1,2 },
 };
 
-
-
-const float kGTEtaLSB = 0.0435;
-const float kGTPhiLSB = 0.0435;
-const int kHFBegin=29;
-const int kHFEnd=41;
-const int kNPhi=72;
-
-
-std::pair<float,float> towerEtaBounds(int ieta)
+int l1OfflineSubtract(const std::string inFileName, const std::string subtractType)
 {
-  if(ieta==0) ieta = 1;
-  if(ieta>kHFEnd) ieta = kHFEnd;
-  if(ieta<(-1*kHFEnd)) ieta = -1*kHFEnd;
-  const float towerEtas[42] = {0,0.087,0.174,0.261,0.348,0.435,0.522,0.609,0.696,0.783,0.870,0.957,1.044,1.131,1.218,1.305,1.392,1.479,1.566,1.653,1.740,1.830,1.930,2.043,2.172,2.322,2.5,2.650,2.853,3.139,3.314,3.489,3.664,3.839,4.013,4.191,4.363,4.538,4.716,4.889,5.191,5.191};
-  return std::make_pair( towerEtas[abs(ieta)-1],towerEtas[abs(ieta)] );
-}
+  const Int_t nSubType = 5;
+  const std::string subType[nSubType] = {"None", "PhiRingHITower", "PhiRingPPTower", "PhiRingHIRegion", "ChunkyDonut"};
 
-float towerEta(int ieta)
-{
-  std::pair<float,float> bounds = towerEtaBounds(ieta);
-  float eta = (bounds.second+bounds.first)/2.;
-  float sign = ieta>0 ? 1. : -1.;
-  return sign*eta;
-}
+  bool isFound = false;
+  for(Int_t i = 0; i < nSubType; ++i){
+    if(subtractType.size() == subType[i].size() && subtractType.find(subType[i]) != std::string::npos){
+      isFound = true;
+      break;
+    }
+  }
 
-float towerPhiSize()
-{
-  return 2.*M_PI/kNPhi;
-}
+  if(!isFound){
+    std::cout << "Given subtraction type \'" << subtractType << "\' is not found. Please pick one of: " << std::endl;
+    std::cout << " ";
+    for(Int_t i = 0; i < nSubType; ++i){
+      std::cout << subType[i] << ",";
+    }
+    std::cout << std::endl;
+    return 1;
+  }
 
 
-float towerPhi(int iphi)
-{
-  float phi = (float(iphi)-0.5)*towerPhiSize();
-  if (phi > M_PI) phi = phi - (2*M_PI);
-  return phi;
-}
+  TDatime* date = new TDatime();
+  const std::string dateStr = std::to_string(date->GetDate());
+  delete date;
 
-int gtEta(int ieta) {
-
-  double eta = towerEta(ieta);
-  return round ( eta / kGTEtaLSB );
-
-}
-
-int gtPhi(int iphi) {
-
-  double phi = towerPhi(iphi);
-  if (phi<0) phi = phi + 2*M_PI;
-  return round ( phi / kGTPhiLSB );
-
-}
-
-int l1OfflineSubtract(const std::string inFileName)
-{
   const int minSeedThresh = 8;
   const int nIEta = 82;
   const int nIPhi = 72;
 
-  TFile* outFile_p = new TFile("output/l1OfflineSubtract.root", "RECREATE");
+  TFile* outFile_p = new TFile(("output/l1OfflineSubtract_" + dateStr + ".root").c_str(), "RECREATE");
   TH1F* etaMiss_p = new TH1F("etaMiss_h", ";HW #eta;Counts (Misses)", 103, -51.5, 51.5);
   TH1F* phiMiss_p = new TH1F("phiMiss_h", ";HW #phi;Counts (Misses)", 150, -0.5, 149.5);
 
@@ -126,6 +100,7 @@ int l1OfflineSubtract(const std::string inFileName)
   inL1AlgoUpgradeTree_p->SetBranchStatus("jetIEta", 1);
   inL1AlgoUpgradeTree_p->SetBranchStatus("jetPhi", 1);
   inL1AlgoUpgradeTree_p->SetBranchStatus("jetIPhi", 1);
+  inL1AlgoUpgradeTree_p->SetBranchStatus("jetSeedEt", 1);
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
@@ -140,7 +115,7 @@ int l1OfflineSubtract(const std::string inFileName)
 
   inL1AlgoEvtTree_p->SetBranchAddress("Event", &evt);
 
-  const Int_t nEntries = TMath::Min(200000, (Int_t)l1CaloTree_p->GetEntries());
+  const Int_t nEntries = TMath::Min(100000, (Int_t)l1CaloTree_p->GetEntries());
 
   std::map<Int_t, Int_t> max;
   for(Int_t i = 1; i <= 41; ++i){
@@ -150,8 +125,11 @@ int l1OfflineSubtract(const std::string inFileName)
 
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
+  int foundCount = 0;
+  int missCount = 0;
+
   std::cout << "Processing " << nEntries << "..." << std::endl;
-  for(Int_t entry = 190000; entry < nEntries; ++entry){
+  for(Int_t entry = 0; entry < nEntries; ++entry){
     if(entry%10000 == 0) std::cout << " Entry " << entry << "/" << nEntries << std::endl;
 
     l1CaloTree_p->GetEntry(entry);
@@ -160,25 +138,36 @@ int l1OfflineSubtract(const std::string inFileName)
     inL1AlgoEvtTree_p->GetEntry(entry);
 
     
-    //    if(entry != 190099) continue;
-    if(evt->run != 1) continue;
-    if(evt->lumi != 2541) continue;
-    if(evt->event < 254000) continue;
-    if(evt->event > 254100) continue;
-    if(evt->event != 254046) continue;
+    //    if(entry != 22117) continue;
+    //    if(evt->run != 1) continue;
+    //    if(evt->lumi != 126 && evt->lumi != 127) continue;
+    //    if(evt->event < 12501 || evt->event > 12700) continue;
+        
 
-    std::cout << "Event: " << evt->event << std::endl;
-    std::cout << "Entry: " << entry << std::endl;
+    //    std::cout << "  Event: " << evt->event << std::endl;
+
+    //    if(entry != 190099) continue;
+    //if(evt->run != 1) continue;
+    //if(evt->lumi != 2541) continue;
+    //if(evt->event < 254000) continue;
+    //if(evt->event > 254100) continue;
+    //if(evt->event != 254046) continue;
+
+    //    std::cout << "Event: " << evt->event << std::endl;
+    //    std::cout << "Entry: " << entry << std::endl;
 
     int leadJtIEt = -999;
     int leadJtIEta = -999;
     int leadJtIPhi = -999;
+    int leadJtSeedPt = -999;
     
     for(unsigned int jI = 0; jI < upgrade->jetIEt.size(); ++jI){
+      if(TMath::Abs(upgrade->jetIEta.at(jI)) >= gtEta(25)) continue;
       if(upgrade->jetIEt.at(jI) > leadJtIEt){
 	leadJtIEt = upgrade->jetIEt.at(jI);
 	leadJtIEta = upgrade->jetIEta.at(jI);
 	leadJtIPhi = upgrade->jetIPhi.at(jI);
+	leadJtSeedPt = upgrade->jetSeedEt.at(jI);
       }
     }
 
@@ -205,29 +194,42 @@ int l1OfflineSubtract(const std::string inFileName)
       uePerEta[towers_->ieta[i]] += towers_->iet[i];
       tempMax[towers_->ieta[i]] += 1;
     }
+    
 
-    Float_t tempVal = (uePerEta[1] + uePerEta[-1])/2;
-    uePerEta[1] = tempVal;
-    uePerEta[-1] = tempVal;
-
-    for(unsigned int i = 2; i <= 41; ++i){
-      if(i%2 == 1) continue;
-      tempVal = (uePerEta[i] + uePerEta[i+1])/2;
-      uePerEta[i] = tempVal;
-      uePerEta[i+1] = tempVal;
-
-      tempVal = (uePerEta[-i] + uePerEta[-i-1])/2;
-      uePerEta[-i] = tempVal;
-      uePerEta[-i-1] = tempVal;
+    if(subtractType.size() == std::string("None").size() && subtractType.find("None") != std::string::npos){
+      for(Int_t i = 1; i <= 41; ++i){
+	uePerEta[i] = 0;
+	uePerEta[-i] = 0;
+      }
     }
+    else if(subtractType.size() == std::string("PhiRingHITower").size() && subtractType.find("PhiRingHITower") != std::string::npos){
+      Float_t tempVal = (uePerEta[1] + uePerEta[-1])/2;
+      uePerEta[1] = tempVal;
+      uePerEta[-1] = tempVal;
+      
+      for(unsigned int i = 2; i <= 41; ++i){
+	if(i%2 == 1) continue;
+	tempVal = (uePerEta[i] + uePerEta[i+1])/2;
+	uePerEta[i] = tempVal;
+	uePerEta[i+1] = tempVal;
+	
+	tempVal = (uePerEta[-i] + uePerEta[-i-1])/2;
+	uePerEta[-i] = tempVal;
+	uePerEta[-i-1] = tempVal;
+      }
+    }
+
 
     for(unsigned int i = 0; i < towers_->iet.size(); ++i){
       int iEt = TMath::Max(0, towers_->iet.at(i) - ((int)(uePerEta[towers_->ieta[i]]/72)));
       int ietaPos = towers_->ieta[i] + 41;
       if(towers_->ieta[i] > 0) ietaPos -= 1;
+
+      if(towers_->iphi[i] == 72) towers_->iphi[i] = 0;
+
       newTowIEt[ietaPos][towers_->iphi[i]] = iEt;
     }
-
+  
     std::vector<int> jetPt;
     std::vector<int> jetPhi;
     std::vector<int> jetEta;
@@ -238,6 +240,7 @@ int l1OfflineSubtract(const std::string inFileName)
     std::vector< std::vector<int> > fullSeedEta;
     std::vector< std::vector<int> > fullSeedPhi;
 
+ 
     for(int etaI = 4; etaI < nIEta-4; ++etaI){
       int etaPos = etaI - nIEta/2;
       if(etaPos >= 0) etaPos += 1;
@@ -267,24 +270,36 @@ int l1OfflineSubtract(const std::string inFileName)
 
 	      tempJetPt += newTowIEt[etaI2][phiPos];
 
-	      if(phiI == 71 && etaPos == -23) std::cout << " " << newTowIEt[etaI2][phiPos] << ", " << etaI2 << ", " << phiPos << ", (" << etaPos2 << ", " << phiI2 << ")" << std::endl;   
+	      //	      if(isMatch) std::cout << "  " << tempJetPt << std::endl;
+
+	      //	      if(phiI == 71 && etaPos == -23) std::cout << " " << newTowIEt[etaI2][phiPos] << ", " << etaI2 << ", " << phiPos << ", (" << etaPos2 << ", " << phiI2 << ")" << std::endl;   
 	      tempSeedPt.push_back(newTowIEt[etaI2][phiPos]);
 	      tempSeedPhi.push_back(phiPos);
 	      tempSeedEta.push_back(etaPos2);
 
+	      /*
 	      if(newTowIEt[etaI2][phiPos] > 4){
 		std::cout << "  " << newTowIEt[etaI2][phiPos] << ", " << etaI2 << ", " << phiPos << ", (" << etaPos2 << ", " << phiI2 << ")" << std::endl;
 	      }
+	      */
 	      
 	      if(etaI2 == 0 && phiI2 == 0) continue;
 	      else{
 		int dPhi = phiI2 - phiI + 4;
 		int dEta = etaI2 - etaI + 4;
 
-		if(mask_[dPhi][dEta] == 1 && newTowIEt[etaI][phiI] < newTowIEt[etaI2][phiPos]) goodSeed = false;
-		else if(mask_[dPhi][dEta] == 2 && newTowIEt[etaI][phiI] <= newTowIEt[etaI2][phiPos]) goodSeed = false;
+		if(mask_[8-dPhi][dEta] == 1 && newTowIEt[etaI][phiI] < newTowIEt[etaI2][phiPos]) goodSeed = false;
+		else if(mask_[8-dPhi][dEta] == 2 && newTowIEt[etaI][phiI] <= newTowIEt[etaI2][phiPos]) goodSeed = false;
 
-		if(!goodSeed) break;
+		if(!goodSeed){
+		  /*		  
+		  if(isMatch){
+		    std::cout << dPhi << ", " << dEta << std::endl;
+		    std::cout << "   Lost good seed at etaI, phiI, et: " << etaPos2 << ", " << phiPos << ", " << newTowIEt[etaI2][phiPos] << std::endl;
+		  }
+		  */
+		  break;
+		}
 	      }
 	    }
 	    if(!goodSeed) break;
@@ -348,18 +363,22 @@ int l1OfflineSubtract(const std::string inFileName)
       }
     }
 
-    std::cout << "Lead: " << leadJtIEt << ", " << leadJtIPhi << ", " << leadJtIEta << std::endl;
-    std::cout << "NJets: " << jetPt.size() << std::endl;
-    for(int i = 0; i < TMath::Min(4, (int)jetPt.size()); ++i){
-      std::cout << " " << i << "/" << jetPt.size() << ": " << jetPt.at(i) << ", " << jetPhi.at(i) << ", " << jetEta.at(i) << ", " << seedPt.at(i) << " (" << jetPhiPrev.at(i) << ", " << jetEtaPrev.at(i) << ")" << std::endl;
-
-      
-      for(unsigned int j = 0; j < fullSeedPt.at(i).size(); ++j){
-	if(fullSeedPt.at(i).at(j) > 0) std::cout << "  " << fullSeedPt.at(i).at(j) << "," << fullSeedPhi.at(i).at(j) << "," << fullSeedEta.at(i).at(j) << std::endl;
+    if(leadJtIEt != jetPt.at(0)){
+      missCount++;
+      std::cout << "Lead iet, iphi, ieta, seedEt: " << leadJtIEt << ", " << leadJtIPhi << ", " << leadJtIEta << ", " << leadJtSeedPt << std::endl;
+      std::cout << "NJets: " << jetPt.size() << std::endl;
+      for(int i = 0; i < TMath::Min(8, (int)jetPt.size()); ++i){
+	std::cout << " " << i << "/" << jetPt.size() << ", pt, phi, eta, seed): " << jetPt.at(i) << ", " << jetPhi.at(i) << ", " << jetEta.at(i) << ", " << seedPt.at(i) << " (" << jetPhiPrev.at(i) << ", " << jetEtaPrev.at(i) << ")" << std::endl;
+	
+	
+	for(unsigned int j = 0; j < fullSeedPt.at(i).size(); ++j){
+	  if(fullSeedPt.at(i).at(j) > 0) std::cout << "  " << fullSeedPt.at(i).at(j) << "," << fullSeedPhi.at(i).at(j) << "," << fullSeedEta.at(i).at(j) << std::endl;
+	}
+	
       }
-      
     }
- 
+    else foundCount++;
+
     if(leadJtIEt - jetPt.at(0) != 0 || jetPhi.at(0) != leadJtIPhi || jetEta.at(0) != leadJtIEta){
       etaMiss_p->Fill(jetEta.at(0));
       phiMiss_p->Fill(jetPhi.at(0));
@@ -374,6 +393,9 @@ int l1OfflineSubtract(const std::string inFileName)
 
     fullSeedPt.clear();
   }
+
+  std::cout << "Found: " << foundCount << std::endl;
+  std::cout << "Miss: " << missCount << std::endl;
 
   std::cout << "Processing complete!" << std::endl;
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
@@ -412,12 +434,12 @@ int l1OfflineSubtract(const std::string inFileName)
 
 int main(int argc, char* argv[])
 {
-  if(argc != 2){
-    std::cout << "Usage ./bin/l1OfflineSubtract.exe <inFileName>" << std::endl;
+  if(argc != 3){
+    std::cout << "Usage ./bin/l1OfflineSubtract.exe <inFileName> <subTypeStr>" << std::endl;
     return 1;
   }
 
   int retVal = 0;
-  retVal += l1OfflineSubtract(argv[1]);
+  retVal += l1OfflineSubtract(argv[1], argv[2]);
   return retVal;
 }
