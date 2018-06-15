@@ -66,7 +66,7 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
   const int nIEta = 83;
   const int nIPhi = 72;
 
-  TFile* outFile_p = new TFile(("output/l1OfflineSubtract_" + dateStr + ".root").c_str(), "RECREATE");
+  TFile* outFile_p = new TFile(("output/l1OfflineSubtract_" + subtractType + "_" + dateStr + ".root").c_str(), "RECREATE");
   TH1F* etaMiss_p = new TH1F("etaMiss_h", ";HW #eta;Counts (Misses)", 103, -51.5, 51.5);
   TH1F* phiMiss_p = new TH1F("phiMiss_h", ";HW #phi;Counts (Misses)", 150, -0.5, 149.5);
 
