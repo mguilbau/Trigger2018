@@ -273,6 +273,8 @@ int l1Comp(const std::string inForestName, bool isPassThruForest, std::vector<st
   const Double_t l1PtBins2DLow[nL1PtBins2D+1] = { 8.,  8., 24.,  40.};
   const Double_t l1PtBins2DHi[nL1PtBins2D+1] = {200., 24., 40., 200.};
 
+  TH1F* rho_h = new TH1F("rho_h", ";#rho;Events", 200, 0., 400.);
+
   TH1F* l1JetEt_h[nL1Algo][nMaxBins];
   TH1F* l1JetEta_h[nL1Algo][nMaxBins][nL1PtBins2D+1];
   TH1F* l1JetPhi_h[nL1Algo][nMaxBins][nL1PtBins2D+1];
@@ -318,9 +320,9 @@ int l1Comp(const std::string inForestName, bool isPassThruForest, std::vector<st
     }
   }
 
-  const Int_t nJtPtBins = 74;
-  const Float_t jtPtLow = 15;
-  const Float_t jtPtHi = 200;
+  const Int_t nJtPtBins = 20;
+  const Float_t jtPtLow = 40;
+  const Float_t jtPtHi = 140;
   Double_t jtPtBins[nJtPtBins+1];
   getLinBins(jtPtLow, jtPtHi, nJtPtBins, jtPtBins);
 
@@ -665,7 +667,7 @@ int l1Comp(const std::string inForestName, bool isPassThruForest, std::vector<st
     if(TMath::Abs(vz_) > 15.) continue;
     //    if(!pPAprimaryVertexFilter_) continue;
     //    if(!pBeamScrapingFilter_) continue;
-    if(!HBHENoiseFilterResultRun2Loose_) continue;
+    //    if(!HBHENoiseFilterResultRun2Loose_) continue;
 
     bool isGood = true;
     Int_t entryL1Algos[nL1Algo];
@@ -699,6 +701,10 @@ int l1Comp(const std::string inForestName, bool isPassThruForest, std::vector<st
       }
     }
 
+
+    if(centPos < 0) continue;
+
+    rho_h->Fill(rho_);
 
     totalFound++;
     //    std::cout << "  Found entry!" << std::endl;
@@ -934,6 +940,10 @@ int l1Comp(const std::string inForestName, bool isPassThruForest, std::vector<st
   if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
   outFile_p->cd();
+  
+  rho_h->Write("", TObject::kOverwrite);
+  delete rho_h;
+  
   for(Int_t i = 0; i < nL1Algo; ++i){
     for(Int_t cI = 0; cI < nMaxBins; ++cI){
       l1JetEt_h[i][cI]->SetMinimum(0.5);

@@ -3,7 +3,6 @@
 #include <vector>
 #include <algorithm>
 #include <map>
-#include <fstream>
 //#include <pair>
 
 #include "TFile.h"
@@ -12,7 +11,6 @@
 #include "TMath.h"
 #include "TDatime.h"
 
-#include "include/checkMakeDir.h"
 #include "include/doGlobalDebug.h"
 #include "include/L1Tools.h"
 #include "include/mntToXRootdFileString.h"
@@ -60,10 +58,8 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
   const std::string dateStr = std::to_string(date->GetDate());
   delete date;
 
-  checkMakeDir("output");
-
   const int minSeedThresh = 8;
-  const int nIEta = 83;
+  const int nIEta = 82;
   const int nIPhi = 72;
 
   TFile* outFile_p = new TFile(("output/l1OfflineSubtract_" + dateStr + ".root").c_str(), "RECREATE");
@@ -132,18 +128,13 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
   int foundCount = 0;
   int missCount = 0;
 
-  std::map<int, std::map<int, int> > maxTowIEt;
-  for(int etaI = -41; etaI <= 41; ++etaI){
-    for(int phiI = 0; phiI <= nIPhi; ++phiI){
-      (maxTowIEt[etaI])[phiI] = 0;
+  int maxTowIEt[nIEta][nIPhi];
+  for(int etaI = 0; etaI < nIEta; ++etaI){
+    for(int phiI = 0; phiI < nIPhi; ++phiI){
+      maxTowIEt[etaI][phiI] = 0;
     }
   }
 
-  bool isNone = subtractType.size() == std::string("None").size() && subtractType.find("None") != std::string::npos;
-  bool isChunkyDonut = subtractType.size() == std::string("ChunkyDonut").size() && subtractType.find("ChunkyDonut") != std::string::npos;
-  bool isPhiRingPPTower = subtractType.size() == std::string("PhiRingPPTower").size() && subtractType.find("PhiRingPPTower") != std::string::npos;
-  bool isPhiRingHITower = subtractType.size() == std::string("PhiRingHITower").size() && subtractType.find("PhiRingHITower") != std::string::npos;
-  bool isPhiRingHIRegion = subtractType.size() == std::string("PhiRingHIRegion").size() && subtractType.find("PhiRingHIRegion") != std::string::npos;
 
   std::cout << "Processing " << nEntries << "..." << std::endl;
   for(Int_t entry = 0; entry < nEntries; ++entry){
@@ -153,13 +144,13 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
     if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
     inL1AlgoUpgradeTree_p->GetEntry(entry);
     inL1AlgoEvtTree_p->GetEntry(entry);
+
     
     //    if(entry != 22117) continue;
-    /*
     if(evt->run != 1) continue;
     if(evt->lumi != 126) continue;
-    if(evt->event < 12500 || evt->event > 12520) continue;
-    */  
+    if(evt->event < 12500 || evt->event > 12600) continue;
+        
 
     //    std::cout << "  Event: " << evt->event << std::endl;
 
@@ -170,11 +161,14 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
     //if(evt->event > 254100) continue;
     //if(evt->event != 254046) continue;
 
+    std::cout << "Event: " << evt->event << std::endl;
+    std::cout << "Entry: " << entry << std::endl;
+
     int leadJtIEt = -999;
     int leadJtIEta = -999;
     int leadJtIPhi = -999;
     int leadJtSeedPt = -999;
-
+    
     for(unsigned int jI = 0; jI < upgrade->jetIEt.size(); ++jI){
       //      if(TMath::Abs(upgrade->jetIEta.at(jI)) >= gtEta(25)) continue;
       if(upgrade->jetIEt.at(jI) > leadJtIEt){
@@ -187,10 +181,10 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
 
     if(leadJtIEt == -999) leadJtIEt = 0;
   
-    std::map<int, std::map<int, int> > newTowIEt;
-    for(int etaI = -41; etaI <= 41; ++etaI){
-      for(int phiI = 0; phiI <= nIPhi; ++phiI){
-	(newTowIEt[etaI])[phiI] = 0;
+    int newTowIEt[nIEta][nIPhi];
+    for(int etaI = 0; etaI < nIEta; ++etaI){
+      for(int phiI = 0; phiI < nIPhi; ++phiI){
+	newTowIEt[etaI][phiI] = 0;
       }
     }
 
@@ -204,69 +198,47 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
       tempMax[-i] = 0;
     }
 
-
     for(unsigned int i = 0; i < towers_->iet.size(); ++i){
       //     std::cout << towers_->iet.at(i) << ", " << towers_->ieta.at(i) << ", " << towers_->iphi.at(i) << std::endl;
-
-      if(towers_->ieta[i] == -25) continue;
-      if(towers_->ieta[i] == -26) continue;
-      if(towers_->ieta[i] == -27) continue;
-      if(towers_->ieta[i] == -28) continue;
-
-      if(towers_->ieta[i] == 25) continue;
-      if(towers_->ieta[i] == 26) continue;
-      if(towers_->ieta[i] == 27) continue;
-      if(towers_->ieta[i] == 28) continue;
 
       uePerEta[towers_->ieta[i]] += towers_->iet[i];
       tempMax[towers_->ieta[i]] += 1;
     }
     
-    for(Int_t etaI = 29; etaI < 41; ++etaI){
-      uePerEta[-etaI] = uePerEta[-(etaI+1)];
-      uePerEta[etaI] = uePerEta[etaI+1];
-    }
-    uePerEta[-41] = 0;
-    uePerEta[41] = 0;
-    
 
-    for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
-      uePerEta[-28] = 0;
-      uePerEta[-27] = 0;
-      uePerEta[-26] = 0;
-      uePerEta[-25] = 0;
-      
-      uePerEta[28] = 0;
-      uePerEta[27] = 0;
-      uePerEta[26] = 0;
-      uePerEta[25] = 0;	
-    }
-    
-    if(isNone || isChunkyDonut){
+    if((subtractType.size() == std::string("None").size() && subtractType.find("None") != std::string::npos) || (subtractType.size() == std::string("ChunkyDonut").size() && subtractType.find("ChunkyDonut") != std::string::npos)){
       for(Int_t i = 1; i <= 41; ++i){
 	uePerEta[i] = 0;
 	uePerEta[-i] = 0;
       }
     }
-    else if(isPhiRingHITower){
-      for(unsigned int i = 1; i < 41; ++i){
-	if(i%2 != 0) continue;
-	Float_t tempVal = (uePerEta[i-1] + uePerEta[i])/2;
-	uePerEta[i-1] = tempVal;
+    else if(subtractType.size() == std::string("PhiRingHITower").size() && subtractType.find("PhiRingHITower") != std::string::npos){
+      Float_t tempVal = (uePerEta[1] + uePerEta[-1])/2;
+      uePerEta[1] = tempVal;
+      uePerEta[-1] = tempVal;
+      
+      for(unsigned int i = 2; i <= 41; ++i){
+	if(i%2 == 1) continue;
+	tempVal = (uePerEta[i] + uePerEta[i+1])/2;
 	uePerEta[i] = tempVal;
+	uePerEta[i+1] = tempVal;
 	
-	tempVal = (uePerEta[-(i-1)] + uePerEta[-i])/2;
-	uePerEta[-(i-1)] = tempVal;
+	tempVal = (uePerEta[-i] + uePerEta[-i-1])/2;
 	uePerEta[-i] = tempVal;
+	uePerEta[-i-1] = tempVal;
       }
     }
-    else if(isPhiRingHIRegion){
-      for(unsigned int i = 1; i < 41; ++i){
+    else if(subtractType.size() == std::string("PhiRingHIRegion").size() && subtractType.find("PhiRingHIRegion") != std::string::npos){
+      Float_t tempVal = (uePerEta[1] + uePerEta[-1])/2;
+      uePerEta[1] = tempVal;
+      uePerEta[-1] = tempVal;
+      
+      for(unsigned int i = 2; i <= 41; ++i){
 	if(i%4 == 3) continue;
 	if(i%4 == 0) continue;
-	if(i%4 == 2) continue;
+	if(i%4 == 1) continue;
 
-	Float_t tempVal = (uePerEta[i] + uePerEta[i+1] + uePerEta[i+2] + uePerEta[i+3])/4;
+	tempVal = (uePerEta[i] + uePerEta[i+1] + uePerEta[i+2] + uePerEta[i+3])/4;
 	uePerEta[i] = tempVal;
 	uePerEta[i+1] = tempVal;
 	uePerEta[i+2] = tempVal;
@@ -282,93 +254,42 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
 
 
     for(unsigned int i = 0; i < towers_->iet.size(); ++i){
-      int puEtaPos = towers_->ieta[i];
-      if(puEtaPos >= 29) puEtaPos--;
-      else if(puEtaPos <= -29) puEtaPos++;
+      int iEt = TMath::Max(0, towers_->iet.at(i) - ((int)(uePerEta[towers_->ieta[i]]/72)));
+      int ietaPos = towers_->ieta[i] + 41;
+      if(towers_->ieta[i] > 0) ietaPos -= 1;
 
-      int iEt = TMath::Max(0, towers_->iet.at(i) - ((int)(uePerEta[puEtaPos]/72)));
+      if(towers_->iphi[i] == 72) towers_->iphi[i] = 0;
 
-      //      int ietaPos = towers_->ieta[i] + 41;
-      //      if(towers_->ieta[i] > 0) ietaPos -= 1;
+      if(towers_->ieta[i] <= -25 && towers_->ieta[i] >= -28) newTowIEt[ietaPos][towers_->iphi[i]] = 0;
+      else if(towers_->ieta[i] <= 27 && towers_->ieta[i] >= 24) newTowIEt[ietaPos][towers_->iphi[i]] = 0;
+      else newTowIEt[ietaPos][towers_->iphi[i]] = iEt;
 
-      //      if(towers_->iphi[i] == 72) towers_->iphi[i] = 0;
-
-      /*
-      if(isPhiRingHITower || isPhiRingPPTower || isPhiRingHIRegion){
-	if(towers_->ieta[i] <= -25 && towers_->ieta[i] >= -28) newTowIEt[ietaPos][towers_->iphi[i]] = 0;
-	else if(towers_->ieta[i] <= 28 && towers_->ieta[i] >= 25) newTowIEt[ietaPos][towers_->iphi[i]] = 0;
-	else newTowIEt[ietaPos][towers_->iphi[i]] = iEt;
-      }
-      */
-     
-      (newTowIEt[towers_->ieta[i]])[towers_->iphi[i]] = iEt;
-      //      newTowIEt[ietaPos][towers_->iphi[i]] = iEt;
+      if(newTowIEt[ietaPos][towers_->iphi[i]] > maxTowIEt[ietaPos][towers_->iphi[i]]) maxTowIEt[ietaPos][towers_->iphi[i]] = newTowIEt[ietaPos][towers_->iphi[i]];
     }
 
-        
-    for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
-      for(Int_t etaI = 29; etaI < 41; ++etaI){
-	(newTowIEt[-etaI])[phiI] = (newTowIEt[-(etaI+1)])[phiI];
-	(newTowIEt[etaI])[phiI] = (newTowIEt[etaI+1])[phiI];
-      }
-      (newTowIEt[-41])[phiI] = 0;
-      (newTowIEt[41])[phiI] = 0;
-    }
-    for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
-      (newTowIEt[-28])[phiI] = 0;
-      (newTowIEt[-27])[phiI] = 0;
-      (newTowIEt[-26])[phiI] = 0;
-      (newTowIEt[-25])[phiI] = 0;
-      
-      (newTowIEt[28])[phiI] = 0;
-      (newTowIEt[27])[phiI] = 0;
-      (newTowIEt[26])[phiI] = 0;
-      (newTowIEt[25])[phiI] = 0;	
+    /*
+    std::cout << "Tower display: " << std::endl;
 
-    }
-
-
-    for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
-      for(Int_t etaI = -41; etaI <= 41; ++etaI){
-	if((maxTowIEt[etaI])[phiI] < (newTowIEt[etaI])[phiI]) (maxTowIEt[etaI])[phiI] = (newTowIEt[etaI])[phiI];
-      }
-    }
-
-    const std::string csvStr = "output/l1Towers_" + subtractType + "_Run" + std::to_string(evt->run) + "_Lumi" + std::to_string(evt->lumi) + "_Evt" + std::to_string(evt->event) + "_" + dateStr + ".csv";
-    
-    //    std::cout << csvStr << std::endl;
-    std::ofstream file(csvStr.c_str());
-    
-    std::string disp = "  ,";
-    file << disp;
-    //std::cout << disp;
-    for(int etaI = -41; etaI <= 41; ++etaI){
-      disp = std::to_string(TMath::Abs(etaI)) + ",";
+    for(int etaI = 0; etaI < nIEta; ++etaI){
+      std::string disp = std::to_string(TMath::Abs(etaI-41)) + ",";
       if(disp.size() == 2) disp = " " + disp;
-      file << disp;
-      //std::cout << disp;
+      std::cout << disp;
     }
-    file << std::endl;
-    //std::cout << std::endl;
+    std::cout << std::endl;
 
-    for(int phiI = 0; phiI <= nIPhi; ++phiI){	
-      disp = std::to_string(phiI) + ",";
-      if(disp.size() == 2) disp = " " + disp;
-      file << disp;
-      //std::cout << disp;
-
-      for(int etaI = -41; etaI <= 41; ++etaI){
-	disp = std::to_string((newTowIEt[etaI])[phiI]);
+    for(int phiI = 0; phiI < nIPhi; ++phiI){	
+      for(int etaI = 0; etaI < nIEta; ++etaI){
+	std::string disp = std::to_string(newTowIEt[etaI][phiI]);
 	if(disp.size() == 1) disp = " " + disp + ",";
 	else if(disp.size() == 2) disp = disp + ",";
-
-	file << disp;
-	//std::cout << disp;
+	//	else if(disp.size() == 3) disp =  disp + ",";
+	std::cout << disp;
       }
-      file << std::endl;
-      //std::cout << std::endl;
-    }    
-    file.close();
+      std::cout << std::endl;
+    }
+
+    std::cout << "End tower display" << std::endl;
+    */
   
     std::vector<int> jetPt;
     std::vector<int> jetPhi;
@@ -380,22 +301,12 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
     std::vector< std::vector<int> > fullSeedEta;
     std::vector< std::vector<int> > fullSeedPhi;
 
-    for(int etaI = -41; etaI <= 41; ++etaI){
-
-      if(etaI == 0) continue;
-
-      if(etaI == -25) continue;
-      if(etaI == -26) continue;
-      if(etaI == -27) continue;
-      if(etaI == -28) continue;
-
-      if(etaI == 25) continue;
-      if(etaI == 26) continue;
-      if(etaI == 27) continue;
-      if(etaI == 28) continue;
+    for(int etaI = 0; etaI < nIEta; ++etaI){
+      int etaPos = etaI - nIEta/2;
+      if(etaPos >= 0) etaPos += 1;
       
-      for(int phiI = 0; phiI <= nIPhi; ++phiI){
-	if((newTowIEt[etaI])[phiI] >= minSeedThresh){
+      for(int phiI = 0; phiI < nIPhi; ++phiI){
+	if(newTowIEt[etaI][phiI] >= minSeedThresh){
 	  int tempJetPt = 0;
 
 	  std::vector<int> tempSeedPt;
@@ -403,40 +314,38 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
 	  std::vector<int> tempSeedEta;
 
 	  bool goodSeed = true;
+	  for(Int_t etaI2 = TMath::Max(0, etaI - 4); etaI2 <= TMath::Min(nIEta-1, etaI + 4); ++etaI2){	
+	    int tempEtaI2 = etaI2;
+	    if(etaI2 <= -29 + 41 && etaI > -29 + 41){
+	      tempEtaI2--;
+	      if(tempEtaI2 < 0) continue;
+	    }
+	    else if(etaI2 >= 29 + 41 && etaI < 29 + 41){
+	      tempEtaI2++;
+	      if(tempEtaI2 >= nIEta) continue;
+	    }
 
-	  for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
-	    int etaPos2 = etaI2;
-	    if(etaI > 0 && etaPos2 <= 0) etaPos2--;
-	    if(etaI < 0 && etaPos2 >= 0) etaPos2++;
-
-	    if(etaPos2 == -25) continue;
-	    if(etaPos2 == -26) continue;
-	    if(etaPos2 == -27) continue;
-	    if(etaPos2 == -28) continue;
-	    
-	    if(etaPos2 == 25) continue;
-	    if(etaPos2 == 26) continue;
-	    if(etaPos2 == 27) continue;
-	    if(etaPos2 == 28) continue;
+	    int etaPos2 = tempEtaI2 - nIEta/2;
+	    if(etaPos2 >= 0) etaPos2 += 1;
 
 	    for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
 	      int phiPos = phiI2;
-	      if(phiPos <= 0) phiPos += nIPhi;
-	      if(phiPos > nIPhi) phiPos -= nIPhi;
+	      if(phiPos < 0) phiPos += nIPhi;
+	      if(phiPos >= nIPhi) phiPos -= nIPhi;
 
-	      tempJetPt += (newTowIEt[etaPos2])[phiPos];
+	      tempJetPt += newTowIEt[tempEtaI2][phiPos];
 
-	      tempSeedPt.push_back((newTowIEt[etaPos2])[phiPos]);
+	      tempSeedPt.push_back(newTowIEt[tempEtaI2][phiPos]);
 	      tempSeedPhi.push_back(phiPos);
 	      tempSeedEta.push_back(etaPos2);
 	      
-	      if(etaPos2 == etaI && phiPos == phiI) continue;
+	      if(tempEtaI2 == 0 && phiI2 == 0) continue;
 	      else{
 		int dPhi = phiI2 - phiI + 4;
-		int dEta = etaI2 - etaI + 4;
+		int dEta = tempEtaI2 - etaI + 4;
 
-		if(mask_[8-dPhi][dEta] == 1 && (newTowIEt[etaI])[phiI] < newTowIEt[etaPos2][phiPos]) goodSeed = false;
-		else if(mask_[8-dPhi][dEta] == 2 && (newTowIEt[etaI])[phiI] <= (newTowIEt[etaPos2])[phiPos]) goodSeed = false;
+		if(mask_[8-dPhi][dEta] == 1 && newTowIEt[etaI][phiI] < newTowIEt[tempEtaI2][phiPos]) goodSeed = false;
+		else if(mask_[8-dPhi][dEta] == 2 && newTowIEt[etaI][phiI] <= newTowIEt[tempEtaI2][phiPos]) goodSeed = false;
 
 		if(!goodSeed){
 		  break;
@@ -448,80 +357,75 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
 
 	  if(!goodSeed) continue;
 
-	  if(isChunkyDonut){
+	  if(subtractType.size() == std::string("ChunkyDonut").size() && subtractType.find("ChunkyDonut") != std::string::npos){
 	    int ptFlapPhiUp = 0;
 	    int ptFlapPhiDown = 0;
 	    int ptFlapEtaUp = 0;
 	    int ptFlapEtaDown = 0;
 	    
-	    for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
+	    for(Int_t etaI2 = TMath::Max(0, etaI - 4); etaI2 <= TMath::Min(nIEta-1, etaI + 4); ++etaI2){	
 	      Int_t etaPos = etaI2;
-	      if(etaI < 0 && etaPos >= 0) etaPos++;
-	      if(etaI > 0 && etaPos <= 0) etaPos--;
+	      if(etaPos <= -29 + 41 && etaI > -29 + 41) etaPos--;
+	      if(etaPos >= 29 + 40 && etaI < 29 + 40) etaPos++;
 
 	      for(Int_t phiI2 = phiI + 5; phiI2 <= phiI + 7; ++phiI2){ 	      
 		int phiPos = phiI2;
-		if(phiPos <= 0) phiPos += nIPhi;
-		if(phiPos > nIPhi) phiPos -= nIPhi;
+		if(phiPos < 0) phiPos += nIPhi;
+		if(phiPos >= nIPhi) phiPos -= nIPhi;
 
-		ptFlapPhiUp += (newTowIEt[etaPos])[phiPos];
+		ptFlapPhiUp += newTowIEt[etaPos][phiPos];
 	      }
 	    }
 
-	    for(Int_t etaI2 = TMath::Max(etaI - 4, -41); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
+	    for(Int_t etaI2 = TMath::Max(etaI - 4, 0); etaI2 <= TMath::Min(nIEta-1, etaI + 4); ++etaI2){	
 	      Int_t etaPos = etaI2;
-	      if(etaI < 0 && etaPos >= 0) etaPos++;
-	      if(etaI > 0 && etaPos <= 0) etaPos--;
+	      if(etaPos <= -29 + 41 && etaI > -29 + 41) etaPos--;
+	      if(etaPos >= 29 + 40 && etaI < 29 + 40) etaPos++;
 	      
 	      for(Int_t phiI2 = phiI - 7; phiI2 <= phiI - 5; ++phiI2){ 	      
 		int phiPos = phiI2;
-		if(phiPos <= 0) phiPos += nIPhi;
-		if(phiPos > nIPhi) phiPos -= nIPhi;
+		if(phiPos < 0) phiPos += nIPhi;
+		if(phiPos >= nIPhi) phiPos -= nIPhi;
 
-		ptFlapPhiDown += (newTowIEt[etaPos])[phiPos];
+		ptFlapPhiDown += newTowIEt[etaPos][phiPos];
 	      }
 	    }
 
 	    for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
 	      int phiPos = phiI2;
-	      if(phiPos <= 0) phiPos += nIPhi;
-	      if(phiPos > nIPhi) phiPos -= nIPhi;
+	      if(phiPos < 0) phiPos += nIPhi;
+	      if(phiPos >= nIPhi) phiPos -= nIPhi;
 
-	      for(Int_t etaI2 = TMath::Max(-41, etaI - 7); etaI2 <= TMath::Max(-41, etaI - 5); ++etaI2){
+	      for(Int_t etaI2 = TMath::Max(0, etaI - 7); etaI2 <= TMath::Max(0, etaI - 5); ++etaI2){
 		Int_t etaPos = etaI2;
-		if(etaI < 0 && etaPos >= 0) etaPos++;
-		if(etaI > 0 && etaPos <= 0) etaPos--;
+		if(etaPos <= -29 + 41 && etaI > -29 + 41) etaPos--;
+		if(etaPos >= 29 + 40 && etaI < 29 + 40) etaPos++;
 		
-		ptFlapEtaDown += (newTowIEt[etaPos])[phiPos];
+		ptFlapEtaDown += newTowIEt[etaPos][phiPos];
 	      }
 	    }
 
 	    for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
 	      int phiPos = phiI2;
-	      if(phiPos <= 0) phiPos += nIPhi;
-	      if(phiPos > nIPhi) phiPos -= nIPhi;
+	      if(phiPos < 0) phiPos += nIPhi;
+	      if(phiPos >= nIPhi) phiPos -= nIPhi;
 
-	      for(Int_t etaI2 = TMath::Min(41, etaI + 5); etaI2 <= TMath::Min(41, etaI + 7); ++etaI2){
+	      for(Int_t etaI2 = TMath::Min(nIEta-1, etaI + 5); etaI2 <= TMath::Min(nIEta-1, etaI + 7); ++etaI2){
 		Int_t etaPos = etaI2;
-		if(etaI < 0 && etaPos >= 0) etaPos++;
-		if(etaI > 0 && etaPos <= 0) etaPos--;
 
-		ptFlapEtaUp += (newTowIEt[etaPos])[phiPos];
+		if(etaPos <= -29 + 41 && etaI > -29 + 41) etaPos--;
+		if(etaPos >= 29 + 40 && etaI < 29 + 40) etaPos++;
+
+		ptFlapEtaUp += newTowIEt[etaPos][phiPos];
 	      }
 	    }
-	  
-	    std::vector<int> flaps = {ptFlapEtaUp, ptFlapEtaDown, ptFlapPhiUp, ptFlapPhiDown};
-	    if((newTowIEt[etaI])[phiI] == 17){
-	      //	      std::cout << " Seedpt, phi eta: " << (newTowIEt[etaI])[phiI] << ", " << phiI << ", " << etaI << std::endl;
-	      //	      std::cout << " Flaps etaup, etadown, phiup, phidown: " << flaps.at(0) << ", " << flaps.at(1) << ", " << flaps.at(2) << ", " << flaps.at(3) << std::endl;
-	    }
 
+	    std::vector<int> flaps = {ptFlapEtaUp, ptFlapEtaDown, ptFlapPhiUp, ptFlapPhiDown};
 	    std::sort(std::begin(flaps), std::end(flaps));
 
 	    tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
 	    if(tempJetPt < 0) tempJetPt = 0;
 	    if(tempJetPt > 0){
-	      //	      std::cout << " Flaps: " << flaps.at(0) << ", " << flaps.at(1) << ", " << flaps.at(2) << ", " << flaps.at(3) << std::endl;
 	    }
 	  }
 
@@ -529,10 +433,10 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
 
 	  jetPt.push_back(tempJetPt);
 	  jetPhi.push_back(gtPhi(phiI));
-	  jetEta.push_back(gtEta(etaI));
+	  jetEta.push_back(gtEta(etaPos));
 	  jetPhiPrev.push_back(phiI);
-	  jetEtaPrev.push_back(etaI);
-	  seedPt.push_back((newTowIEt[etaI])[phiI]);
+	  jetEtaPrev.push_back(etaPos);
+	  seedPt.push_back(newTowIEt[etaI][phiI]);
 	  fullSeedPt.push_back(tempSeedPt);
 	  fullSeedEta.push_back(tempSeedEta);
 	  fullSeedPhi.push_back(tempSeedPhi);
@@ -581,37 +485,16 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
       }
     }
 
-    for(unsigned int jI = 0; jI < upgrade->jetIEt.size(); ++jI){
-      bool isJtFound = false;
 
-      for(unsigned int jI2 = 0; jI2 < jetPt.size(); ++jI2){
-	if(jetPt.at(jI2) != upgrade->jetIEt.at(jI)) continue;
-	if(jetPhi.at(jI2) != upgrade->jetIPhi.at(jI)) continue;
-	if(jetEta.at(jI2) != upgrade->jetIEta.at(jI)) continue;
-
-	isJtFound = true;
-	break;
-      }
-     
-      if(!isJtFound){
-	std::cout << "Warning in event: " << evt->event << ", entry " << entry << std::endl;
-	std::cout << " Cannot find jet (pt, phi, eta): " << upgrade->jetIEt.at(jI) << ", " << upgrade->jetIPhi.at(jI) << ", " << upgrade->jetIEta.at(jI) << std::endl;
-	std::cout << " Candidates were: " << std::endl;
-	for(unsigned int jI2 = 0; jI2 < jetPt.size(); ++jI2){
-	  std::cout << "  " << jetPt.at(jI2) << ", " << jetPhi.at(jI2) << ", " << jetEta.at(jI2) << std::endl;
-	}
-      }
-    }
-  
     if(leadJtIEt != jetPt.at(0)){
       missCount++;
-      //      std::cout << "Lead iet, iphi, ieta, seedEt: " << leadJtIEt << ", " << leadJtIPhi << ", " << leadJtIEta << ", " << leadJtSeedPt << std::endl;
-      //      std::cout << "NJets: " << jetPt.size() << std::endl;
+      std::cout << "Lead iet, iphi, ieta, seedEt: " << leadJtIEt << ", " << leadJtIPhi << ", " << leadJtIEta << ", " << leadJtSeedPt << std::endl;
+      std::cout << "NJets: " << jetPt.size() << std::endl;
       for(int i = 0; i < TMath::Min(8, (int)jetPt.size()); ++i){
-	//	std::cout << " " << i << "/" << jetPt.size() << ", pt, phi, eta, seed): " << jetPt.at(i) << ", " << jetPhi.at(i) << ", " << jetEta.at(i) << ", " << seedPt.at(i) << " (" << jetPhiPrev.at(i) << ", " << jetEtaPrev.at(i) << ")" << std::endl;
+	std::cout << " " << i << "/" << jetPt.size() << ", pt, phi, eta, seed): " << jetPt.at(i) << ", " << jetPhi.at(i) << ", " << jetEta.at(i) << ", " << seedPt.at(i) << " (" << jetPhiPrev.at(i) << ", " << jetEtaPrev.at(i) << ")" << std::endl;
 		
 	for(unsigned int j = 0; j < fullSeedPt.at(i).size(); ++j){
-	  //	  if(fullSeedPt.at(i).at(j) > 0) std::cout << "  " << fullSeedPt.at(i).at(j) << "," << fullSeedPhi.at(i).at(j) << "," << fullSeedEta.at(i).at(j) << std::endl;
+	  if(fullSeedPt.at(i).at(j) > 0) std::cout << "  " << fullSeedPt.at(i).at(j) << "," << fullSeedPhi.at(i).at(j) << "," << fullSeedEta.at(i).at(j) << std::endl;
 	}
 	
       }
@@ -633,7 +516,6 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
     fullSeedPt.clear();
   }
 
-  /*
   std::cout << "Tower display: " << std::endl;
   
   for(int etaI = 0; etaI < nIEta; ++etaI){
@@ -653,9 +535,9 @@ int l1OfflineSubtract(const std::string inFileName, const std::string subtractTy
     }
     std::cout << std::endl;
   }
-  */
 
   std::cout << "End tower display" << std::endl;
+  
 
   std::cout << "Found: " << foundCount << std::endl;
   std::cout << "Miss: " << missCount << std::endl;
