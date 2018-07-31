@@ -10,7 +10,8 @@ class runLumiEvtKey{
   runLumiEvtKey(){};
   bool addKey(unsigned int run, unsigned int lumi, unsigned long evt, int entry);
   int getEntryFromKey(unsigned int run, unsigned int lumi, unsigned long evt);
-
+  int getSize();
+  
  private:
   unsigned long long makeKey(unsigned int run, unsigned int lumi, unsigned long evt);
 
@@ -81,5 +82,7 @@ int runLumiEvtKey::getEntryFromKey(unsigned int run, unsigned int lumi, unsigned
 
   return outEntry;
 }
+
+int runLumiEvtKey::getSize(){return runLumiEvtKeyToEntry.size();}
 
 #endif

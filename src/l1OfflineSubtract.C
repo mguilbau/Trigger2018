@@ -211,16 +211,16 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     jetNames.push_back(tempStr);
   }
 
-  const Int_t nSubType = 14;
-  const std::string subType[nSubType] = {"None", "PhiRingHITower", "PhiRingPPTower", "PhiRingHIRegion", "ChunkyDonut", "ChunkyDonutLUT", "ChunkyDonutZero", "PhiRingPPTower72", "PhiRingPPTower72NoDiv", "PhiRingPPTower72NoDivCorr", "PhiRingHITower144", "PhiRingHIRegion288", "ChunkyDonutHIMod", "PhiRingPPTower72NoDivNoNeg"};
-  const Int_t styles[nSubType] = {20, 47, 34, 21, 43, 29, 24, 25, 46, 45, 20, 27, 28, 49};
+  const Int_t nSubType = 15;
+  const std::string subType[nSubType] = {"None", "PhiRingHITower", "PhiRingPPTower", "PhiRingHIRegion", "ChunkyDonut", "ChunkyDonutLUT", "ChunkyDonutZero", "ChunkySandwich", "PhiRingPPTower72", "PhiRingPPTower72NoDiv", "PhiRingPPTower72NoDivCorr", "PhiRingHITower144", "PhiRingHIRegion288", "ChunkyDonutHIMod", "PhiRingPPTower72NoDivNoNeg"};
+  const Int_t styles[nSubType] = {20, 47, 34, 21, 43, 29, 24, 25, 46, 45, 20, 27, 28, 49, 20};
   vanGoghPalette vg;
-  bool doType[nSubType] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+  bool doType[nSubType] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
   bool isFound = false;
 
   int firstTypePos = -1;
 
-  bool isFileType[nSubType] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+  bool isFileType[nSubType] = {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
   
   std::string globalAlgoString = "";
 
@@ -854,6 +854,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	bool isChunkyDonutHIMod = subType[sI].size() == std::string("ChunkyDonutHIMod").size() && subType[sI].find("ChunkyDonutHIMod") != std::string::npos;
 	bool isChunkyDonutLUT = subType[sI].size() == std::string("ChunkyDonutLUT").size() && subType[sI].find("ChunkyDonutLUT") != std::string::npos;
 	bool isChunkyDonutZero = subType[sI].size() == std::string("ChunkyDonutZero").size() && subType[sI].find("ChunkyDonutZero") != std::string::npos;
+	bool isChunkySandwich = subType[sI].size() == std::string("ChunkySandwich").size() && subType[sI].find("ChunkySandwich") != std::string::npos;
 	bool isPhiRingPPTower = subType[sI].size() == std::string("PhiRingPPTower").size() && subType[sI].find("PhiRingPPTower") != std::string::npos;
 	bool isPhiRingPPTower72 = subType[sI].size() == std::string("PhiRingPPTower72").size() && subType[sI].find("PhiRingPPTower72") != std::string::npos;
 	bool isPhiRingPPTower72NoDiv = subType[sI].size() == std::string("PhiRingPPTower72NoDiv").size() && subType[sI].find("PhiRingPPTower72NoDiv") != std::string::npos;
@@ -864,7 +865,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	bool isPhiRingHIRegion = subType[sI].size() == std::string("PhiRingHIRegion").size() && subType[sI].find("PhiRingHIRegion") != std::string::npos;
 	bool isPhiRingHIRegion288 = subType[sI].size() == std::string("PhiRingHIRegion288").size() && subType[sI].find("PhiRingHIRegion288") != std::string::npos;
       
-	bool doEvt = doType[sI] && (isNone || isChunkyDonut || isChunkyDonutHIMod || isChunkyDonutZero || isChunkyDonutLUT || isPhiRingPPTower || isPhiRingPPTower72NoDiv || isPhiRingPPTower72 || isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivCorr || isPhiRingHITower144 || isPhiRingHITower || isPhiRingHIRegion || isPhiRingHIRegion288);
+	bool doEvt = doType[sI] && (isNone || isChunkyDonut || isChunkyDonutHIMod || isChunkyDonutZero || isChunkySandwich || isChunkyDonutLUT || isPhiRingPPTower || isPhiRingPPTower72NoDiv || isPhiRingPPTower72 || isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivCorr || isPhiRingHITower144 || isPhiRingHITower || isPhiRingHIRegion || isPhiRingHIRegion288);
 
 	if(!doEvt) continue;
 	
@@ -877,7 +878,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	if(isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivNoNeg) threshMultFact = 72;
 	else if(isPhiRingPPTower72NoDivCorr) threshMultFact = (72 - 9);
 	
-	if(isNone || isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod){
+	if(isNone || isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich){
 	  for(Int_t i = 1; i <= 41; ++i){
 	    (uePerEta.at(sI))[i] = 0;
 	    (uePerEta.at(sI))[-i] = 0;
@@ -1062,7 +1063,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  
 	  if(etaI == 0) continue;
 	  
-	  if(!isChunkyDonut && !isChunkyDonutLUT){
+	  if(!isChunkyDonut && !isChunkyDonutLUT && !isChunkySandwich){
 	    if(etaI == -25) continue;
 	    if(etaI == -26) continue;
 	    if(etaI == -27) continue;
@@ -1084,7 +1085,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		if(etaI > 0 && etaPos2 <= 0) etaPos2--;
 		if(etaI < 0 && etaPos2 >= 0) etaPos2++;
 		
-		if(!isChunkyDonut && !isChunkyDonutLUT){
+		if(!isChunkyDonut && !isChunkyDonutLUT && !isChunkySandwich){
 		  if(etaPos2 == -25) continue;
 		  if(etaPos2 == -26) continue;
 		  if(etaPos2 == -27) continue;
@@ -1121,7 +1122,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	      
 	      if(!goodSeed) continue;
 	      
-	      if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod){
+	      if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich){
 		int ptFlapPhiUp = 0;
 		int ptFlapPhiDown = 0;
 		int ptFlapEtaUp = 0;
@@ -1185,8 +1186,12 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		
 		std::vector<int> flaps = {ptFlapEtaUp, ptFlapEtaDown, ptFlapPhiUp, ptFlapPhiDown};
 		std::sort(std::begin(flaps), std::end(flaps));
+
+		std::vector<int> phiFlaps = {ptFlapPhiUp, ptFlapPhiDown};
+		std::sort(std::begin(phiFlaps), std::end(phiFlaps));
 		
-		if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || TMath::Abs(etaI) < 30) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
+		if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || (TMath::Abs(etaI) < 30 && !isChunkySandwich)) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
+		else if(isChunkySandwich) tempJetPt -= flaps.at(0) + flaps.at(0) + flaps.at(1);
 		else tempJetPt -= (flaps.at(2) + flaps.at(2) + flaps.at(3));
 		
 		if(tempJetPt < 0) tempJetPt = 0;

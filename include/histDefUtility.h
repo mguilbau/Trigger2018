@@ -22,4 +22,14 @@ void centerTitles(std::vector<TH1*> hists_)
   return;
 }
 
+void setSumW2(TH1* hist_p){hist_p->Sumw2(); return;}
+void setSumW2(std::vector<TH1*> hists_)
+{
+  for(unsigned int pI = 0; pI < hists_.size(); ++pI){
+    setSumW2(hists_.at(pI));
+  }
+  
+  return;
+}
+
 #endif
