@@ -1,8 +1,14 @@
 #ifndef PLOTUTILITIES_H
 #define PLOTUTILITIES_H
 
+//cpp dependencies
+#include <string>
+
+//ROOT dependencies
 #include "TCanvas.h"
 #include "TH1.h"
+#include "TBox.h"
+#include "TError.h"
 
 std::string prettyString(const double inVal, const int prec, const bool doDot)
 {
@@ -34,5 +40,26 @@ void prettyTH1(TH1* hist_p, const double size, const int style, const int col)
 
   return;
 }
+
+
+void drawWhiteBox(Double_t x1, Double_t x2, Double_t y1, Double_t y2)
+{
+  TBox* tempBox_p = new TBox();
+  tempBox_p->SetFillColor(0);
+  tempBox_p->DrawBox(x1, y1, x2, y2);
+  delete tempBox_p;
+}
+
+
+void quietSaveAs(TCanvas* canv_p, const std::string saveName)
+{
+  Int_t oldLevel = gErrorIgnoreLevel;
+  gErrorIgnoreLevel = kWarning;
+  canv_p->SaveAs(saveName.c_str());
+  gErrorIgnoreLevel = oldLevel;
+  
+  return;
+}
+
 
 #endif
