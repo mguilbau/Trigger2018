@@ -74,7 +74,12 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
 
   checkMakeDir("output");
   checkMakeDir("output/" + dateStr);
-  std::ofstream outFile(("output/" + dateStr + "/unwrapCaloEvt" + std::to_string(getEntry) + ".txt").c_str());
+  std::string outFileName = "unwrapCaloEvt" + std::to_string(getEntry) + "_MinEta" + std::to_string(etaLow) + "_MaxEta" + std::to_string(etaHi) + "_" + dateStr + ".csv";
+  while(outFileName.find("-") != std::string::npos){
+    outFileName.replace(outFileName.find("-"), 1, "Neg");
+  }
+  
+  std::ofstream outFile(("output/" + dateStr + "/" + outFileName).c_str());
 
   const Int_t minStringSize = 4;
   outFile << "Phi,";
