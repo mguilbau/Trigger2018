@@ -7,7 +7,7 @@
 // 
 // Original code : L1TriggerDPG/L1Ntuples/L1UpgradeTreeProducer - Jim Brooke
 //-------------------------------------------------------------------------------
-
+//Taken from oroginal reader code here: https://github.com/cms-sw/cmssw/blob/master/L1Trigger/L1TNtuples/interface/L1AnalysisL1UpgradeDataFormat.h  
 
 #include <vector>
 
@@ -16,35 +16,16 @@ namespace L1Analysis
 
   // copied from DataFormats/L1Trigger/interface/EtSum.h, for use in standalone ROOT macros which use this class.
   enum EtSumType {
-      kTotalEt,
-      kTotalHt,
-      kMissingEt,
-      kMissingHt,
-      kTotalEtx,
-      kTotalEty,
-      kTotalHtx,
-      kTotalHty,
-      kMissingEtHF,
-      kTotalEtxHF,
-      kTotalEtyHF,
-      kMinBiasHFP0,
-      kMinBiasHFM0,
-      kMinBiasHFP1,
-      kMinBiasHFM1,
-      kTotalEtHF,
-      kTotalEtEm,
-      kTotalHtHF,
-      kTotalHtxHF,
-      kTotalHtyHF,
-      kMissingHtHF,
-      kTowerCount,
-      kCentrality,
-      kAsymEt,
-      kAsymHt,
-      kAsymEtHF,
-      kAsymHtHF    
+    kTotalEt,
+    kTotalHt,
+    kMissingEt,
+    kMissingHt,
+    kTotalEtx,
+    kTotalEty,
+    kTotalHtx,
+    kTotalHty,
   };
-  
+
   struct L1AnalysisL1UpgradeDataFormat
   {
   
@@ -70,7 +51,6 @@ namespace L1Analysis
       egNTT.clear();
       egShape.clear();
       egTowerHoE.clear();
-      egHwQual.clear();
 
       nTaus = 0;
       tauEt.clear();
@@ -154,7 +134,6 @@ namespace L1Analysis
     std::vector<short int> egNTT;
     std::vector<short int> egShape;
     std::vector<short int> egTowerHoE;
-    std::vector<short int> egHwQual;
  
     unsigned short int nTaus;
     std::vector<float> tauEt;

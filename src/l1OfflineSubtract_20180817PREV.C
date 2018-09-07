@@ -1,4 +1,3 @@
-//cpp dependencies
 #include <string>
 #include <iostream>
 #include <vector>
@@ -7,7 +6,6 @@
 #include <fstream>
 //#include <pair>
 
-//ROOT dependencies
 #include "TFile.h"
 #include "TH1F.h"
 #include "TTree.h"
@@ -18,23 +16,20 @@
 #include "TLegend.h"
 #include "TLine.h"
 #include "TLatex.h"
-#include "TF1.h"
 
-//local dependencies
 #include "include/checkMakeDir.h"
 #include "include/doGlobalDebug.h"
 #include "include/etaPhiFunc.h"
+#include "include/runLumiEvtKey.h"
 #include "include/getLinBins.h"
-#include "include/histDefUtility.h"
+#include "include/L1Tools.h"
+#include "include/mntToXRootdFileString.h"
 #include "include/L1AnalysisEventDataFormat.h"
 #include "include/L1AnalysisL1CaloTowerDataFormat.h"
 #include "include/L1AnalysisL1UpgradeDataFormat.h"
-#include "include/L1Tools.h"
-#include "include/mntToXRootdFileString.h"
-#include "include/plotUtilities.h"
 #include "include/returnRootFileContentsList.h"
-#include "include/runLumiEvtKey.h"
-#include "include/stringUtil.h"
+#include "include/histDefUtility.h"
+#include "include/plotUtilities.h"
 #include "include/vanGoghPalette.h"
 
 const int mask_[9][9] = {
@@ -48,16 +43,6 @@ const int mask_[9][9] = {
   { 1,1,1,1,1,1,1,2,2 },
   { 1,1,1,1,1,1,1,1,2 },
 };
-
-double getMinGTZero(TH1* inHist_p)
-{
-  double minVal = inHist_p->GetMaximum();
-  for(Int_t bIX = 0; bIX < inHist_p->GetNbinsX(); ++bIX){
-    if(inHist_p->GetBinContent(bIX+1) <= 0) continue;
-    if(inHist_p->GetBinContent(bIX+1) < minVal) minVal = inHist_p->GetBinContent(bIX+1);
-  }
-  return minVal;
-}
 
 
 void getXYBins(const int nBins, int* x, int* y)
@@ -135,7 +120,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   bool hasHI = false;
   bool hasRho = false;
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
   runLumiEvtKey* forestMap[nForestFile];
   TTree* hiTree_p = NULL;
   for(Int_t fI = 0; fI < nForestFile; ++fI){
@@ -144,7 +129,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   if(doForest){
     for(unsigned int fI = 0; fI < forestFileName.size(); ++fI){
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      //std::cout << __LINE__ << std::endl;
       
       TFile* forestFile_p = TFile::Open(mntToXRootdFileString(forestFileName.at(fI)).c_str(), "READ");
       jetTrees = returnRootFileContentsList(forestFile_p, "TTree", "ak");
@@ -153,14 +138,8 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	if(jetTrees.at(pos).substr(0,2).find("ak") != std::string::npos) pos++;
 	else jetTrees.erase(jetTrees.begin()+pos);
       }
-
-      pos=0;
-      while(pos < jetTrees.size()){
-	if(jetTrees.at(pos).find("PF") == std::string::npos) pos++;
-	else jetTrees.erase(jetTrees.begin()+pos);
-      }
       
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      //std::cout << __LINE__ << std::endl;
       
       forestMap[fI] = new runLumiEvtKey();
       
@@ -171,7 +150,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	else if(allTrees.at(aI).find("rcRhoR4N11HiNtuplizer") != std::string::npos) hasRho = true;
       }
       
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      //std::cout << __LINE__ << std::endl;
       
       Int_t HBHENoiseFilterResultRun2Loose_;
       Int_t pcollisionEventSelection_;
@@ -202,7 +181,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       
       const Int_t nEntries = hiTree_p->GetEntries();
       
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      //std::cout << __LINE__ << std::endl;
       for(Int_t entry = 0; entry < nEntries; ++entry){
 	hiTree_p->GetEntry(entry);
 	skimTree_p->GetEntry(entry);
@@ -213,7 +192,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	forestMap[fI]->addKey(runF, lumiF, eventF, entry);
       }
       
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      //std::cout << __LINE__ << std::endl;
       
       forestFile_p->Close();
       delete forestFile_p;
@@ -222,7 +201,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   std::cout << "Do Forest: " << doForest << std::endl;
   
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
   const Int_t nJetTrees = jetTrees.size();
   std::vector<std::string> jetNames;
@@ -232,62 +211,28 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     jetNames.push_back(tempStr);
   }
 
-  const Int_t nSubTypeSet = 26;
-  const std::string subTypeSet[nSubTypeSet] = {"None", "PhiRingHITowe", "PhiRingPPTower", "PhiRingHIRegion", "ChunkyDonut", "ChunkyDonut_HF12", "ChunkyDonut_HF16", "ChunkyDonutLUT", "ChunkyDonutZero", "ChunkySandwich", "ChunkySandwich4", "ChunkySandwich4_HF12", "ChunkySandwich4_HF16", "ChunkySandwich8", "ChunkySandwich8_Low", "ChunkySandwich8_Half", "ChunkySandwichMask", "ChunkyLunch", "PhiRingPPTower72", "PhiRingPPTower72NoDiv", "PhiRingPPTower72NoDivCorr", "PhiRingHITower144", "PhiRingHIRegion288", "ChunkyDonutHIMod", "PhiRingPPTower72NoDivNoNeg", "PhiRingPPTower72NoDivNoNegCorr"};
-
-  std::vector<std::string> subTypeTemp;
-
-  for(unsigned int i = 0; i < subTypeStr.size(); ++i){
-    bool isFound = false;
-    for(Int_t sI = 0; sI < nSubTypeSet; ++sI){
-      if(isStrSame(subTypeStr.at(i), subTypeSet[sI])){
-	isFound = true;
-	break;
-      }
-    }
-
-    if(isFound) subTypeTemp.push_back(subTypeStr.at(i));
-    else{
-      std::cout << "Warning: subType \'" << subTypeStr.at(i) << "\' is not found. will be skipped." << std::endl;
-    }
-  }
-
-  if(subTypeTemp.size() == 0){
-    std::cout << "Warning: None of the given subtraction types were valid. return 1" << std::endl;
-    std::cout << " Given subtractions: ";
-    for(unsigned int i = 0; i < subTypeStr.size(); ++i){
-      std::cout << subTypeStr.at(i) << ", ";
-    }
-    std::cout << std::endl;
-    std::cout << std::endl;
-    std::cout << " Valid subtractions: ";
-    for(Int_t i = 0; i < nSubTypeSet; ++i){
-      std::cout << subTypeSet[i] << ", ";
-    }
-    std::cout << std::endl;
-
-    return 1;
-  }
-
-  const Int_t nSubType = subTypeTemp.size();
-  std::string subType[nSubType];
-  for(Int_t sI = 0; sI < nSubType; ++sI){
-    subType[sI] = subTypeTemp.at(sI);
-  }
+  const Int_t nSubType = 17;
+  const std::string subType[nSubType] = {"None", "PhiRingHITower", "PhiRingPPTower", "PhiRingHIRegion", "ChunkyDonut", "ChunkyDonutLUT", "ChunkyDonutZero", "ChunkySandwich", "ChunkySandwichMask", "ChunkyLunch", "PhiRingPPTower72", "PhiRingPPTower72NoDiv", "PhiRingPPTower72NoDivCorr", "PhiRingHITower144", "PhiRingHIRegion288", "ChunkyDonutHIMod", "PhiRingPPTower72NoDivNoNeg"};
 
   const Int_t nSetStyles = 5;
-  const Int_t setStyles[nSetStyles] = {24, 25, 46, 28, 27};
+  const Int_t setStyles[nSetStyles] = {20, 21, 47, 34, 33};
   const Int_t nSetColors = 4;
   vanGoghPalette vg;
 
+  bool doType[nSubType];
+  bool isFileType[nSubType];
   Int_t styles[nSubType];
-  //  Int_t colors[nSubType];
+  Int_t colors[nSubType];
 
   for(Int_t sI = 0; sI < nSubType; ++sI){
+    doType[sI] = false;
+    isFileType[sI] = false;
     styles[sI] = setStyles[sI%nSetStyles];
-    //    colors[sI] = vg.getColor(sI%nSetColors);
+    colors[sI] = vg.getColor(sI%nSetColors);
   }
 
+  bool isFound = false;
+  int firstTypePos = -1;
   std::string globalAlgoString = "";
 
   const Int_t nL1Thresh = 13;
@@ -297,11 +242,11 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   l1ThreshPtBins[nL1Thresh] = l1ThreshPt[nL1Thresh-1]/2. + (l1ThreshPt[nL1Thresh-1]/2. - l1ThreshPt[nL1Thresh-2]/2.)/2.;
 
   Int_t threshStyles[nL1Thresh];
-  //  Int_t threshColors[nL1Thresh];
+  Int_t threshColors[nL1Thresh];
 
   for(Int_t tI = 0; tI < nL1Thresh; ++tI){
     threshStyles[tI] = setStyles[tI%nSetStyles];
-    //    threshColors[tI] = vg.getColor(tI%nSetColors);
+    threshColors[tI] = vg.getColor(tI%nSetColors);
   }
  
   TH1F* dummys_p[nSubType];
@@ -345,23 +290,41 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   dummyLeg4_p->SetTextSize(14);
 
   for(Int_t i = 0; i < nSubType; ++i){
+    std::string probeStr = "_" + subType[i] + "_";
+    if(inFileName.at(0).find(probeStr) != std::string::npos){
+      isFileType[i] = true;
+      std::cout << "infile \'" << inFileName.at(0) << "\' is given type \'" << subType[i] << "\'" << std::endl;
+      break;
+    }
+  }  
+
+
+  for(Int_t i = 0; i < nSubType; ++i){
     dummys_p[i] = new TH1F(("dummy_" + std::to_string(i)).c_str(),"", 10, 0, 1);
-    dummys_p[i]->SetMarkerColor(vg.getColor(i%nSetColors));
-    dummys_p[i]->SetLineColor(vg.getColor(i%nSetColors));
-    dummys_p[i]->SetMarkerStyle(setStyles[i%nSetStyles]);
+    dummys_p[i]->SetMarkerColor(colors[i]);
+    dummys_p[i]->SetLineColor(colors[i]);
+    dummys_p[i]->SetMarkerStyle(styles[i]);
     dummys_p[i]->SetMarkerSize(1.2);
     setSumW2(dummys_p[i]);
     centerTitles(dummys_p[i]);
 
-    globalAlgoString = globalAlgoString + "_" + subType[i];
-    dummyLeg_p->AddEntry(dummys_p[i], subType[i].c_str(), "P L");
-    dummyLeg3_p->AddEntry(dummys_p[i], subType[i].c_str(), "P L");
+    for(unsigned int j = 0; j < subTypeStr.size(); ++j){
+      if(subTypeStr.at(j).size() == subType[i].size() && subTypeStr.at(j).find(subType[i]) != std::string::npos){
+	isFound = true;
+	doType[i] = true;
+	if(firstTypePos < 0) firstTypePos = i;
+
+	globalAlgoString = globalAlgoString + "_" + subType[i];
+	dummyLeg_p->AddEntry(dummys_p[i], subType[i].c_str(), "P L");
+	dummyLeg3_p->AddEntry(dummys_p[i], subType[i].c_str(), "P L");
+      }
+    }
   }
 
   for(Int_t i = 0; i < nL1Thresh; ++i){
     dummys4_p[i] = new TH1F(("dummy4_" + std::to_string(i)).c_str(),"", 10, 0, 1);
-    dummys4_p[i]->SetMarkerColor(vg.getColor(i%nSetColors));
-    dummys4_p[i]->SetLineColor(vg.getColor(i%nSetColors));
+    dummys4_p[i]->SetMarkerColor(threshColors[i]);
+    dummys4_p[i]->SetLineColor(threshColors[i]);
     dummys4_p[i]->SetMarkerStyle(threshStyles[i]);
     dummys4_p[i]->SetMarkerSize(1.2);
     setSumW2(dummys4_p[i]);
@@ -377,14 +340,24 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   for(Int_t i = 0; i < nJetTrees; ++i){
     dummys2_p[i] = new TH1F(("dummy2_" + std::to_string(i)).c_str(),"", 10, 0, 1);
-    dummys2_p[i]->SetMarkerColor(vg.getColor(i%nSetColors));
-    dummys2_p[i]->SetLineColor(vg.getColor(i%nSetColors));
-    dummys2_p[i]->SetMarkerStyle(setStyles[i%nSetStyles]);
+    dummys2_p[i]->SetMarkerColor(colors[i]);
+    dummys2_p[i]->SetLineColor(colors[i]);
+    dummys2_p[i]->SetMarkerStyle(styles[i]);
     dummys2_p[i]->SetMarkerSize(1.2);
     setSumW2(dummys2_p[i]);
     centerTitles(dummys2_p[i]);
 
     dummyLeg2_p->AddEntry(dummys2_p[i], jetNames.at(i).c_str(), "P L");
+  }
+
+  if(!isFound){
+    std::cout << "Given subtraction types are not found. Please pick one of: " << std::endl;
+    std::cout << " ";
+    for(Int_t i = 0; i < nSubType; ++i){
+      std::cout << subType[i] << ",";
+    }
+    std::cout << std::endl;
+    return 1;
   }
 
   TDatime* date = new TDatime();
@@ -393,20 +366,19 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   checkMakeDir("output");
   checkMakeDir("pdfDir");
-  checkMakeDir("output/" + dateStr);
   checkMakeDir("pdfDir/" + dateStr);
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
   const Double_t zeroedEtaLow = towerEta(24);
   const Double_t zeroedEtaHi = towerEta(29);
 
-  const Int_t nRhoBins = 4;
-  const Int_t rhoBinsLow[nRhoBins] = {150, 60, 40, 0};
-  const Int_t rhoBinsHi[nRhoBins] = {1000, 150, 60, 40};
-  const Double_t rhoBins[nRhoBins+1] = {0, 40, 60, 150, 1000};
+  const Int_t nRhoBins = 3;
+  const Int_t rhoBinsLow[nRhoBins] = {150, 50, 0};
+  const Int_t rhoBinsHi[nRhoBins] = {1000, 150, 50};
+
  
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
   for(Int_t tI = 1; tI < nL1Thresh; ++tI){
     l1ThreshPtBins[tI] = l1ThreshPt[tI]/2 - (l1ThreshPt[tI]/2 - l1ThreshPt[tI-1]/2)/2;
@@ -416,7 +388,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   Int_t triggerFires[nRhoBins+1][nSubType][nL1Thresh];
   
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
   for(Int_t rI = 0; rI < nRhoBins+1; ++rI){
     for(Int_t sI = 0; sI < nSubType; ++sI){
@@ -427,24 +399,21 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     }
   }
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
   const int minSeedThresh = 8;
-  const int minSeedThreshHF12 = 12;
-  const int minSeedThreshHF16 = 16;
   const int nIEta = 83;
   const int nIPhi = 72;
 
   std::string subtractType = "";
   for(Int_t sI = 0; sI < nSubType; ++sI){
-    subtractType = subtractType + "_" + subType[sI] + "_";
+    if(doType[sI]) subtractType = subtractType + "_" + subType[sI] + "_";
   }
   subtractType.replace(0,1,"");
   subtractType.replace(subtractType.size()-1, 1, "");
 
-  while(subtractType.find("__") != std::string::npos){subtractType.replace(subtractType.find("__"), 2, "_");}
 
-  TFile* outFile_p = new TFile(("output/" + dateStr + "/l1OfflineSubtract_" + subtractType + "_" + extraTag + "_" + dateStr + ".root").c_str(), "RECREATE");
+  TFile* outFile_p = new TFile(("output/l1OfflineSubtract_" + subtractType + "_" + extraTag + "_" + dateStr + ".root").c_str(), "RECREATE");
 
   TH1F* pthat_p = new TH1F("pthat_h", ";ptHat;Counts", 100, 15, 215);
   TH1F* pthatWeighted_p = new TH1F("pthatWeighted_h", ";ptHat (Weighted);Counts", 100, 15, 215);
@@ -455,27 +424,26 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   TH1F* etaMiss_CMSSWJet_p = new TH1F("etaMiss_CMSSWJet_h", ";HW #eta;Counts (Misses)", 103, -51.5, 51.5);
   TH1F* phiMiss_CMSSWJet_p = new TH1F("phiMiss_CMSSWJet_h", ";HW #phi;Counts (Misses)", 150, -0.5, 149.5);
 
-  std::vector<TH1*> th1TempVect = {pthat_p, pthatWeighted_p, etaMiss_p, phiMiss_p, etaMiss_CMSSWJet_p, phiMiss_CMSSWJet_p};
-  setSumW2(th1TempVect);
-  centerTitles(th1TempVect);
+  setSumW2({pthat_p, pthatWeighted_p, etaMiss_p, phiMiss_p, etaMiss_CMSSWJet_p, phiMiss_CMSSWJet_p});
+  centerTitles({pthat_p, pthatWeighted_p, etaMiss_p, phiMiss_p, etaMiss_CMSSWJet_p, phiMiss_CMSSWJet_p});
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+  //std::cout << __LINE__ << std::endl;
 
-  Int_t tempNJtPtBins = 16;
-  Int_t tempJtPtLow = 20;
+  Int_t tempNJtPtBins = 18;
+  Int_t tempJtPtLow = 10;
   Int_t tempJtPtHi = 100;
 
-  Int_t tempNJtPtBinsFor = 8;
-  Int_t tempJtPtLowFor = 20;
+  Int_t tempNJtPtBinsFor = 10;
+  Int_t tempJtPtLowFor = 10;
   Int_t tempJtPtHiFor = 60;
 
   if(extraTag.find("80") != std::string::npos){
-   tempNJtPtBins = 24;
-   tempJtPtLow = 20;
+   tempNJtPtBins = 26;
+   tempJtPtLow = 10;
    tempJtPtHi = 140;
 
-   tempNJtPtBinsFor = 16;
-   tempJtPtLowFor = 20;
+   tempNJtPtBinsFor = 18;
+   tempJtPtLowFor = 10;
    tempJtPtHiFor = 100;
   }
   
@@ -500,12 +468,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   TH1F* leadingJetPt_L1Pt_h[nJetTrees][nRhoBins][nJtAbsEtaBins+1][nSubType][nL1Thresh];
   TH1F* leadingJetPt_L1Pt_DR_h[nJetTrees][nRhoBins][nJtAbsEtaBins+1][nSubType][nL1Thresh];
 
-  TH1F* leadingJetPt_L1Pt_FitMid_h[nJetTrees][nJtAbsEtaBins+1][nSubType][nL1Thresh];
-  TH1F* leadingJetPt_L1Pt_FitWidth_h[nJetTrees][nJtAbsEtaBins+1][nSubType][nL1Thresh];
-
-  TH1F* leadingJetPt_L1Pt_FitMid_DR_h[nJetTrees][nJtAbsEtaBins+1][nSubType][nL1Thresh];
-  TH1F* leadingJetPt_L1Pt_FitWidth_DR_h[nJetTrees][nJtAbsEtaBins+1][nSubType][nL1Thresh];
-
   TH1F* triggerEta_L1Pt_h[nRhoBins+1][nSubType][nL1Thresh];
   TH1F* jetEta_L1Pt_h[nRhoBins+1][nJetTrees][nL1Thresh];
   
@@ -513,7 +475,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   const Double_t l1ResPtBins[nL1ResPtBins+1] = {20, 30, 40, 60, 100, 160};
   TH1F* jetL1PtOverOffline_Mean_h[nJetTrees][nRhoBins+1][nSubType];
   TH1F* jetL1PtOverOffline_Sigma_h[nJetTrees][nRhoBins+1][nSubType];
-  TH1F* jetL1PtOverOffline_SigmaOverMean_h[nJetTrees][nRhoBins+1][nSubType];
   TH1F* jetL1PtOverOffline_h[nJetTrees][nRhoBins+1][nSubType][nL1ResPtBins];
 
   const Double_t maxDR = 0.6;
@@ -537,55 +498,32 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    jtAbsEtaBinsStr2 = prettyString(jtAbsEtaBinsLow[aI], 1, false) + " < |#eta| < " + prettyString(jtAbsEtaBinsHi[aI], 1, false);
 	  }
 
-	  bool is3 = jtAbsEtaBinsStr.find("AbsEta3p0") != std::string::npos;
-	  Int_t tempNJtPtBins = nJtPtBins;
-	  if(is3) tempNJtPtBins = nJtPtBinsFor;
-
-	  const Int_t tempNJtPtBins2 = tempNJtPtBins;
-	  Double_t tempJtPtBins[tempNJtPtBins2+1];
-	  for(Int_t bIX = 0; bIX < tempNJtPtBins2+1; ++bIX){
-	    if(is3) tempJtPtBins[bIX] = jtPtBinsFor[bIX];
-	    else tempJtPtBins[bIX] = jtPtBins[bIX];
-	  }
-
 	  leadingJetPt_h[jI][cI][aI] = NULL;
-	  leadingJetPt_h[jI][cI][aI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_h").c_str(), (";" + jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), tempNJtPtBins2, tempJtPtBins);
+	  if(jtAbsEtaBinsStr.find("AbsEta3p0") != std::string::npos) leadingJetPt_h[jI][cI][aI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_h").c_str(), (";" + jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), nJtPtBinsFor, jtPtBinsFor);
+	  else leadingJetPt_h[jI][cI][aI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_h").c_str(), (";Jet p_{T};Counts (" + centStr2 + ")").c_str(), nJtPtBins, jtPtBins);
       
 	  setSumW2({leadingJetPt_h[jI][cI][aI]});
 	  centerTitles({leadingJetPt_h[jI][cI][aI]});
 
 	  for(Int_t sI = 0; sI < nSubType; ++sI){
 	    for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-
-	      if(cI == 0){
-		leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI] = NULL;
-		leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI] = NULL;
-		leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI] = NULL;
-		leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI] = NULL;
-
-		leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_FitMid_h").c_str(), ";Rho;Turn-on midpoint", nRhoBins, rhoBins);
-		leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_FitWidth_h").c_str(), ";Rho;Turn-on width", nRhoBins, rhoBins);
-		
-		leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_FitMid_DR_h").c_str(), ";Rho;Turn-on midpoint (#DeltaR matched)", nRhoBins, rhoBins);
-		leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_FitWidth_DR_h").c_str(), ";Rho;Turn-on width (#DeltaR matched)", nRhoBins, rhoBins);
-
-		th1TempVect.clear();
-		th1TempVect = {leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI], leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI], leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI], leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI]};
-		setSumW2(th1TempVect);
-		centerTitles(th1TempVect);
-	      }
-
+	      
 	      leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI] = NULL;
 	      leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI] = NULL;
-	   
-	      leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_h").c_str(), (";" + jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), tempNJtPtBins2, tempJtPtBins);
-	      leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_DR_h").c_str(), (";" +  jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), tempNJtPtBins2, tempJtPtBins);
-	      
 
-	      th1TempVect.clear();
-	      th1TempVect = {leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI], leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]};
-	      setSumW2(th1TempVect);
-	      centerTitles(th1TempVect);
+	      if(jtAbsEtaBinsStr.find("AbsEta3p0") != std::string::npos){
+		leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_h").c_str(), (";" + jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), nJtPtBinsFor, jtPtBinsFor);
+		leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_DR_h").c_str(), (";" +  jetStr + "Jet p_{T} (" + jtAbsEtaBinsStr2 + ");Counts (" + centStr2 + ")").c_str(), nJtPtBinsFor, jtPtBinsFor);
+	      }
+	      else{
+		leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_h").c_str(), (";Jet p_{T};Counts (" + centStr2 + ")").c_str(), nJtPtBins, jtPtBins);
+		leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI] = new TH1F(("leadingJetPt_" + jetNames.at(jI) + "_" + centStr + "_" + jtAbsEtaBinsStr + "_" + subType[sI] + "_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_DR_h").c_str(), (";Jet p_{T};Counts (" + centStr2 + ")").c_str(), nJtPtBins, jtPtBins);
+	      }
+
+	      setSumW2({leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI]});
+	      setSumW2({leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]});
+	      centerTitles({leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI]});
+	      centerTitles({leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]});
 	    }
 	  }
 	}
@@ -616,11 +554,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       for(Int_t sI = 0; sI < nSubType; ++sI){
 	jetL1PtOverOffline_Mean_h[jI][cI][sI] = new TH1F(("jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_Mean_h").c_str(), ";L1/Offline;Counts", nL1ResPtBins, l1ResPtBins);
 	jetL1PtOverOffline_Sigma_h[jI][cI][sI] = new TH1F(("jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_Sigma_h").c_str(), ";L1/Offline;Counts", nL1ResPtBins, l1ResPtBins);
-	jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI] = new TH1F(("jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_SigmaOverMean_h").c_str(), ";L1/Offline;Counts", nL1ResPtBins, l1ResPtBins);
-
-	std::vector<TH1*> temp = {jetL1PtOverOffline_Mean_h[jI][cI][sI], jetL1PtOverOffline_Sigma_h[jI][cI][sI], jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]};
-	centerTitles(temp);
-	setSumW2(temp);
+	
+	centerTitles({jetL1PtOverOffline_Mean_h[jI][cI][sI], jetL1PtOverOffline_Sigma_h[jI][cI][sI] });
+	setSumW2({jetL1PtOverOffline_Mean_h[jI][cI][sI], jetL1PtOverOffline_Sigma_h[jI][cI][sI] });
 
 	for(Int_t rI = 0; rI < nL1ResPtBins; ++rI){
 	  jetL1PtOverOffline_h[jI][cI][sI][rI] = new TH1F(("jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_OfflinePt" + prettyString(l1ResPtBins[rI], 1, true) + "to" + prettyString(l1ResPtBins[rI+1], 1, true) + "_h").c_str(), ";L1/Offline;Counts", 51, 0., 5.);
@@ -654,6 +590,8 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   jtphi_p.reserve(nJetTrees);
   jteta_p.reserve(nJetTrees);
 
+  //std::cout << __LINE__ << std::endl;
+  
   for(Int_t fI = 0; fI < nJetTrees; ++fI){
     jtpt_p.push_back(NULL);
     jtphi_p.push_back(NULL);
@@ -664,6 +602,10 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     jteta_p.at(fI) = new std::vector<float>;
   }
 
+  //std::cout << __LINE__ << std::endl;
+  
+
+
   for(unsigned int fI = 0; fI < inFileName.size(); ++fI){
     TFile* inFile_p = TFile::Open(mntToXRootdFileString(inFileName.at(fI)).c_str(), "READ");
     TTree* l1CaloTree_p = (TTree*)inFile_p->Get("l1CaloTowerEmuTree/L1CaloTowerTree");
@@ -673,7 +615,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     TTree* inL1AlgoEvtTree_p = (TTree*)inFile_p->Get("l1EventTree/L1EventTree");
     L1Analysis::L1AnalysisEventDataFormat* evt = new L1Analysis::L1AnalysisEventDataFormat();
     
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
     
     l1CaloTree_p->SetBranchStatus("*", 0);
     l1CaloTree_p->SetBranchStatus("L1CaloTower", 1);
@@ -685,7 +627,8 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     
     l1CaloTree_p->SetBranchAddress("L1CaloTower", &towers_);
     
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+    //std::cout << __LINE__ << std::endl;
+    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
     
     inL1AlgoUpgradeTree_p->SetBranchStatus("*", 0);
     inL1AlgoUpgradeTree_p->SetBranchStatus("L1Upgrade", 1);
@@ -698,7 +641,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     inL1AlgoUpgradeTree_p->SetBranchStatus("jetIPhi", 1);
     inL1AlgoUpgradeTree_p->SetBranchStatus("jetSeedEt", 1);
     
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
     
     inL1AlgoUpgradeTree_p->SetBranchAddress("L1Upgrade", &upgrade);
     
@@ -710,28 +653,41 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     
     inL1AlgoEvtTree_p->SetBranchAddress("Event", &evt);
 
+    //std::cout << __LINE__ << std::endl;
+    
+    //std::cout << __LINE__ << std::endl;
+  
     if(doForest){          
+      //std::cout << __LINE__ << std::endl;
+
       hiTree_p = NULL;      
       forestFile_p = TFile::Open(mntToXRootdFileString(forestFileName.at(fI)).c_str(), "READ");
       
+      //std::cout << __LINE__ << std::endl;
       if(hasHI) hiTree_p = (TTree*)forestFile_p->Get("hiEvtAnalyzer/HiTree");
       else if(hasRho) hiTree_p = (TTree*)forestFile_p->Get("rcRhoR4N11HiNtuplizer/EventTree");
       hiTree_p->SetBranchStatus("*", 0);
       hiTree_p->SetBranchStatus("rho", 1);
       
       hiTree_p->SetBranchAddress("rho", &rho_);
-            
+      
+      //std::cout << __LINE__ << std::endl;
+      
       for(Int_t jI = 0; jI < nJetTrees; ++jI){
 	jetTrees_p[jI] = (TTree*)forestFile_p->Get(jetTrees.at(jI).c_str());
 	
 	jetTrees_p[jI]->SetBranchStatus("*", 0);
 
+	//std::cout << __LINE__ << std::endl;
+	
 	if(doWeights) jetTrees_p[jI]->SetBranchStatus("pthat", 1);
 	if(jetTrees.at(jI).find("/t") != std::string::npos) jetTrees_p[jI]->SetBranchStatus("nref", 1);
 	jetTrees_p[jI]->SetBranchStatus("jtpt", 1);
 	jetTrees_p[jI]->SetBranchStatus("jtphi", 1);
 	jetTrees_p[jI]->SetBranchStatus("jteta", 1);
 	
+	//std::cout << __LINE__ << std::endl;
+
 	if(doWeights) jetTrees_p[jI]->SetBranchAddress("pthat", &(pthat_[jI]));
 	if(jetTrees.at(jI).find("/t") != std::string::npos){
 	  jetTrees_p[jI]->SetBranchAddress("nref", &(nref_[jI]));
@@ -740,43 +696,50 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  jetTrees_p[jI]->SetBranchAddress("jteta", jteta_[jI]);
 	}
 	else{	  
+
+	  //std::cout << __LINE__ << std::endl;
 	  jetTrees_p[jI]->SetBranchAddress("jtpt", &(jtpt_p.at(jI)));
 	  jetTrees_p[jI]->SetBranchAddress("jtphi", &(jtphi_p.at(jI)));
 	  jetTrees_p[jI]->SetBranchAddress("jteta", &(jteta_p.at(jI)));
+
+	  //std::cout << __LINE__ << std::endl;
+
 	}
       }
+      //std::cout << __LINE__ << std::endl;
     }
-          
+      
+    
+    //std::cout << __LINE__ << std::endl;
+    
     //    const Int_t nEntries = TMath::Min(1000000, (Int_t)l1CaloTree_p->GetEntries());
     //    Int_t altMinVal = 10000000;
     //    if(extraTag.find("MBData") != std::string::npos) altMinVal = 100000;
 
-    Int_t altMinVal = (Int_t)l1CaloTree_p->GetEntries()/10;
-    altMinVal = 10000000;
-    if(extraTag.find("MBData") != std::string::npos) altMinVal = TMath::Min(altMinVal, 50000);
+    Int_t altMinVal = 1000;
+    if(extraTag.find("MBData") != std::string::npos) altMinVal = 1000;
 
     const Int_t nEntries = TMath::Min(altMinVal, (Int_t)l1CaloTree_p->GetEntries());
     
-    if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+    if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
                 
     std::cout << "Processing " << nEntries << "..." << std::endl;
     for(Int_t entry = 0; entry < nEntries; ++entry){
-      bool notYetPrintedUE = true;
+      //      if(entry != 94) continue;
 
       if(entry%1000 == 0){
 	std::cout << " Entry " << entry << "/" << nEntries << std::endl;
-	std::cout << triggerFires[0][0][0] << "/" << triggerOpp[0][0][0] << std::endl;
-      }
 
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
+	std::cout << triggerFires[0][firstTypePos][0] << "/" << triggerOpp[0][firstTypePos][0] << std::endl;
+      }
+      
+      //    if(entry != 17113 && entry != 21212) continue;
 
       inFile_p->cd();
       l1CaloTree_p->GetEntry(entry);
-      if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+      if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
       inL1AlgoUpgradeTree_p->GetEntry(entry);
       inL1AlgoEvtTree_p->GetEntry(entry);
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
       
       bool firstForestCall = false;
       Int_t forestEntry = -1;
@@ -786,8 +749,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       }
 
       Double_t weight = 1.;
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
       
       if(doForest){
 	forestFile_p->cd();
@@ -797,6 +758,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	}
 	
 	if(forestEntry == -1){
+	  //	std::cout << "Continuing on..." << evt->run << ", " << evt->lumi << ", " <<  evt->event << std::endl;
 	  if(extraTag.find("MBData") == std::string::npos) continue;
 	  else forestEntry = 0;
 	}
@@ -822,7 +784,12 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       int leadJtIPhi = -999;
       int leadJtSeedPt = -999;
       
+      //    if(evt->run != 1) continue;
+      //    if(evt->lumi != 405) continue;
+      //    if(evt->event != 40469) continue;
+      
       for(unsigned int jI = 0; jI < upgrade->jetIEt.size(); ++jI){
+	//      if(TMath::Abs(upgrade->jetIEta.at(jI)) >= gtEta(25)) continue;
 	if(upgrade->jetIEt.at(jI) > leadJtIEt){
 	  leadJtIEt = upgrade->jetIEt.at(jI);
 	  leadJtIEta = upgrade->jetIEta.at(jI);
@@ -831,12 +798,10 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	}
       }
        
+      //std::cout << __LINE__ << std::endl;
+      
       if(leadJtIEt == -999) leadJtIEt = 0;
       
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
-      std::vector<std::map<int, std::map<int, int> > > origTowIEt;
       std::vector<std::map<int, std::map<int, int> > > newTowIEt;
       newTowIEt.reserve(nSubType);
       std::vector<std::map<int, std::map<int, bool> > > newTowIEtUsed;
@@ -847,20 +812,16 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	std::map<int, std::map<int, bool> > tempUsed;
 	(temp[-41])[0] = 0;
 	(tempUsed[-41])[0] = false;
-	origTowIEt.push_back(temp);
 	newTowIEt.push_back(temp);
 	newTowIEtUsed.push_back(tempUsed);
 	
 	for(int etaI = -41; etaI <= 41; ++etaI){
 	  for(int phiI = 0; phiI <= nIPhi; ++phiI){
-	    ((origTowIEt.at(sI))[etaI])[phiI] = 0;
 	    ((newTowIEt.at(sI))[etaI])[phiI] = 0;
 	    ((newTowIEtUsed.at(sI))[etaI])[phiI] = false;
 	  }
 	}
       }
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
       
       std::vector<std::map<Int_t, Int_t> > uePerEta;
       uePerEta.reserve(nSubType);
@@ -891,35 +852,16 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	}
       }
       
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
-      Double_t trigFirePt[nRhoBins+1][nSubType][nL1Thresh];
-      Double_t trigFireEta[nRhoBins+1][nSubType][nL1Thresh];
-      Double_t trigFirePhi[nRhoBins+1][nSubType][nL1Thresh];
-      Bool_t isTriggerFired[nRhoBins+1][nSubType][nL1Thresh];
-      for(Int_t rI = 0; rI < nRhoBins+1; ++rI){
-	for(Int_t sI = 0; sI < nSubType; ++sI){
-	  for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-	    trigFirePt[rI][sI][lI] = 0.0;
-	    trigFireEta[rI][sI][lI] = 0.0;
-	    trigFirePhi[rI][sI][lI] = 0.0;
-	    isTriggerFired[rI][sI][lI] = false;
-	  }
-	}
-      }
-    
-      std::vector<Float_t> tempLeadingJtPtVect_, tempLeadingJtPhiVect_, tempLeadingJtEtaVect_;
-
+      
       for(Int_t sI = 0; sI < nSubType; ++sI){
 	for(Int_t etaI = 29; etaI < 41; ++etaI){
 	  (uePerEta.at(sI))[-etaI] = (uePerEta.at(sI))[-(etaI+1)];
 	  (uePerEta.at(sI))[etaI] = (uePerEta.at(sI))[etaI+1];
 	}
-	
 	(uePerEta.at(sI))[-41] = 0;
 	(uePerEta.at(sI))[41] = 0;
-		
+	
+	
 	for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){	  	
 	  (uePerEta.at(sI))[-28] = 0;
 	  (uePerEta.at(sI))[-27] = 0;
@@ -932,48 +874,39 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  (uePerEta.at(sI))[25] = 0;	
 	}
             
-	//std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
+      
+	bool isNone = subType[sI].size() == std::string("None").size() && subType[sI].find("None") != std::string::npos;
+	bool isChunkyDonut = subType[sI].size() == std::string("ChunkyDonut").size() && subType[sI].find("ChunkyDonut") != std::string::npos;
+	bool isChunkyDonutHIMod = subType[sI].size() == std::string("ChunkyDonutHIMod").size() && subType[sI].find("ChunkyDonutHIMod") != std::string::npos;
+	bool isChunkyDonutLUT = subType[sI].size() == std::string("ChunkyDonutLUT").size() && subType[sI].find("ChunkyDonutLUT") != std::string::npos;
+	bool isChunkyDonutZero = subType[sI].size() == std::string("ChunkyDonutZero").size() && subType[sI].find("ChunkyDonutZero") != std::string::npos;
+	bool isChunkySandwich = subType[sI].size() == std::string("ChunkySandwich").size() && subType[sI].find("ChunkySandwich") != std::string::npos;
+	bool isChunkySandwichMask = subType[sI].size() == std::string("ChunkySandwichMask").size() && subType[sI].find("ChunkySandwichMask") != std::string::npos;
+	bool isChunkyLunch = subType[sI].size() == std::string("ChunkyLunch").size() && subType[sI].find("ChunkyLunch") != std::string::npos;
+	bool isPhiRingPPTower = subType[sI].size() == std::string("PhiRingPPTower").size() && subType[sI].find("PhiRingPPTower") != std::string::npos;
+	bool isPhiRingPPTower72 = subType[sI].size() == std::string("PhiRingPPTower72").size() && subType[sI].find("PhiRingPPTower72") != std::string::npos;
+	bool isPhiRingPPTower72NoDiv = subType[sI].size() == std::string("PhiRingPPTower72NoDiv").size() && subType[sI].find("PhiRingPPTower72NoDiv") != std::string::npos;
+	bool isPhiRingPPTower72NoDivNoNeg = subType[sI].size() == std::string("PhiRingPPTower72NoDivNoNeg").size() && subType[sI].find("PhiRingPPTower72NoDivNoNeg") != std::string::npos;
+	bool isPhiRingPPTower72NoDivCorr = subType[sI].size() == std::string("PhiRingPPTower72NoDivCorr").size() && subType[sI].find("PhiRingPPTower72NoDivCorr") != std::string::npos;
+	bool isPhiRingHITower = subType[sI].size() == std::string("PhiRingHITower").size() && subType[sI].find("PhiRingHITower") != std::string::npos;
+	bool isPhiRingHITower144 = subType[sI].size() == std::string("PhiRingHITower144").size() && subType[sI].find("PhiRingHITower144") != std::string::npos;
+	bool isPhiRingHIRegion = subType[sI].size() == std::string("PhiRingHIRegion").size() && subType[sI].find("PhiRingHIRegion") != std::string::npos;
+	bool isPhiRingHIRegion288 = subType[sI].size() == std::string("PhiRingHIRegion288").size() && subType[sI].find("PhiRingHIRegion288") != std::string::npos;
+      
+	bool doEvt = doType[sI] && (isNone || isChunkyDonut || isChunkyDonutHIMod || isChunkyDonutZero || isChunkySandwich || isChunkySandwichMask || isChunkyLunch || isChunkyDonutLUT || isPhiRingPPTower || isPhiRingPPTower72NoDiv || isPhiRingPPTower72 || isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivCorr || isPhiRingHITower144 || isPhiRingHITower || isPhiRingHIRegion || isPhiRingHIRegion288);
 
-	bool isNone = isStrSame(subType[sI], "None");
-	bool isChunkyDonut = isStrSame(subType[sI], "ChunkyDonut");
-	bool isChunkyDonut_HF12 = isStrSame(subType[sI], "ChunkyDonut_HF12");
-	bool isChunkyDonut_HF16 = isStrSame(subType[sI], "ChunkyDonut_HF16");
-	bool isChunkyDonutHIMod = isStrSame(subType[sI], "ChunkyDonutHIMod");
- 	bool isChunkyDonutLUT = isStrSame(subType[sI], "ChunkyDonutLUT");
-	bool isChunkyDonutZero = isStrSame(subType[sI], "ChunkyDonutZero");
-	bool isChunkySandwich = isStrSame(subType[sI], "ChunkySandwich");
-	bool isChunkySandwichMask = isStrSame(subType[sI], "ChunkySandwichMask");
-	bool isChunkySandwich4 = isStrSame(subType[sI], "ChunkySandwich4");
-	bool isChunkySandwich4_HF12 = isStrSame(subType[sI], "ChunkySandwich4_HF12");
-	bool isChunkySandwich4_HF16 = isStrSame(subType[sI], "ChunkySandwich4_HF16");
-	bool isChunkySandwich8 = isStrSame(subType[sI], "ChunkySandwich8");
-	bool isChunkySandwich8_Low = isStrSame(subType[sI], "ChunkySandwich8_Low");
-	bool isChunkySandwich8_Half = isStrSame(subType[sI], "ChunkySandwich8_Half");
-	bool isChunkyLunch = isStrSame(subType[sI], "ChunkyLunch");
-	bool isPhiRingPPTower = isStrSame(subType[sI], "PhiRingPPTower");
-	bool isPhiRingPPTower72 = isStrSame(subType[sI], "PhiRingPPTower72");
-	bool isPhiRingPPTower72NoDiv = isStrSame(subType[sI], "PhiRingPPTower72NoDiv");
-	bool isPhiRingPPTower72NoDivNoNeg = isStrSame(subType[sI], "PhiRingPPTower72NoDivNoNeg");
-	bool isPhiRingPPTower72NoDivNoNegCorr = isStrSame(subType[sI], "PhiRingPPTower72NoDivNoNegCorr");
-	bool isPhiRingPPTower72NoDivCorr = isStrSame(subType[sI], "PhiRingPPTower72NoDivCorr");
-	bool isPhiRingHITower = isStrSame(subType[sI], "PhiRingHITower");
-	bool isPhiRingHITower144 = isStrSame(subType[sI], "PhiRingHITower144");
-	bool isPhiRingHIRegion = isStrSame(subType[sI], "PhiRingHIRegion");
-	bool isPhiRingHIRegion288 = isStrSame(subType[sI], "PhiRingHIRegion288");
-
-
-	//std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
+	if(!doEvt) continue;
+	
 	int multFact = 1;
 	int threshMultFact = 1;
-	if(isPhiRingPPTower72 || isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivCorr || isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr) multFact = 72;
+	if(isPhiRingPPTower72 || isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivCorr || isPhiRingPPTower72NoDivNoNeg) multFact = 72;
 	else if(isPhiRingHITower144) multFact = 144;
 	else if(isPhiRingHIRegion288) multFact = 288;
 	
-	if(isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr) threshMultFact = 72;
+	if(isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivNoNeg) threshMultFact = 72;
 	else if(isPhiRingPPTower72NoDivCorr) threshMultFact = (72 - 9);
 	
-	if(isNone || isChunkyDonut || isChunkyDonut_HF12 || isChunkyDonut_HF16 || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich || isChunkySandwichMask || isChunkySandwich4 || isChunkySandwich4_HF12 || isChunkySandwich4_HF16 || isChunkySandwich8 || isChunkySandwich8_Low || isChunkySandwich8_Half || isChunkyLunch){
+	if(isNone || isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich || isChunkySandwichMask || isChunkyLunch){
 	  for(Int_t i = 1; i <= 41; ++i){
 	    (uePerEta.at(sI))[i] = 0;
 	    (uePerEta.at(sI))[-i] = 0;
@@ -1021,8 +954,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  }
 	}
 
-	//std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
     
       
 	for(unsigned int i = 0; i < towers_->iet.size(); ++i){
@@ -1030,14 +961,15 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  if(puEtaPos >= 29) puEtaPos--;
 	  else if(puEtaPos <= -29) puEtaPos++;
 	  
+	  //	int iEt = TMath::Max(0, towers_->iet.at(i)*multFact - ((int)((uePerEta.at(sI))[puEtaPos]/72)));
 	  int iEt = towers_->iet.at(i)*multFact;
-	  if(isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr) iEt += multFact*200;
+	  if(isPhiRingPPTower72NoDivNoNeg) iEt += multFact*200;
 	  
-	  ((origTowIEt.at(sI))[towers_->ieta[i]])[towers_->iphi[i]] = towers_->iet.at(i);
-
 	  iEt -= ((int)((uePerEta.at(sI))[puEtaPos]));	
 
-	  if((isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr) && iEt < 0) iEt = 0;
+	  //	  if(isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivCorr || isPhiRingPPTower72NoDivNoNeg) iEt -= 36;
+
+	  if(isPhiRingPPTower72NoDivNoNeg && iEt < 0) iEt = 0;
 
 	  ((newTowIEt.at(sI))[towers_->ieta[i]])[towers_->iphi[i]] = iEt;
 	  ((newTowIEtUsed.at(sI))[towers_->ieta[i]])[towers_->iphi[i]] = true;
@@ -1049,16 +981,24 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  for(Int_t etaI = -41; etaI <= 41; ++etaI){	    
 	    
 	    if(!((newTowIEtUsed.at(sI))[etaI])[phiI]){
+	      
+	      //	      if(isPhiRingPPTower72NoDivCorr) std::cout << "Orig: " << ((newTowIEt.at(sI))[etaI])[phiI] << ", " << etaI << ", " << phiI << std::endl;
 	      int etTempVal = -(uePerEta.at(sI))[etaI];
-
-	      ((origTowIEt.at(sI))[etaI])[phiI] = 0.;
-	      if(isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr){
-		//		((origTowIEt.at(sI))[etaI])[phiI] = multFact*200;
+	      //	      if(isPhiRingPPTower72NoDiv || isPhiRingPPTower72NoDivCorr || isPhiRingPPTower72NoDivNoNeg) etTempVal -= 36;;
+	      if(isPhiRingPPTower72NoDivNoNeg){
 		etTempVal += multFact*200;
 		if(etTempVal < 0) etTempVal = 0;
 	      }
 
 	      ((newTowIEt.at(sI))[etaI])[phiI] = etTempVal;
+
+	      /*	      
+	      if(isPhiRingPPTower72NoDivCorr){
+		std::cout << " Sub: " << (uePerEta.at(sI))[etaI] << ", " << etaI << std::endl;
+		std::cout << " Sub 36..." << std::endl;
+		std::cout << " Final: " << ((newTowIEt.at(sI))[etaI])[phiI] << std::endl;
+	      }
+	      */
 	    }
 	  }
 	}     
@@ -1066,31 +1006,15 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
 	for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
 	  for(Int_t etaI = 29; etaI < 41; ++etaI){
-	    ((origTowIEt.at(sI))[-etaI])[phiI] = ((origTowIEt.at(sI))[-(etaI+1)])[phiI];
-	    ((origTowIEt.at(sI))[etaI])[phiI] = ((origTowIEt.at(sI))[etaI+1])[phiI];
-
 	    ((newTowIEt.at(sI))[-etaI])[phiI] = ((newTowIEt.at(sI))[-(etaI+1)])[phiI];
 	    ((newTowIEt.at(sI))[etaI])[phiI] = ((newTowIEt.at(sI))[etaI+1])[phiI];
 	  }
-	  ((origTowIEt.at(sI))[-41])[phiI] = 0;
-	  ((origTowIEt.at(sI))[41])[phiI] = 0;
-
 	  ((newTowIEt.at(sI))[-41])[phiI] = 0;
 	  ((newTowIEt.at(sI))[41])[phiI] = 0;
 	}
 	for(Int_t phiI = 0; phiI <= nIPhi; ++phiI){
 	  
-	  if(!isChunkyDonut && !isChunkyDonut_HF12 && !isChunkyDonut_HF16 && !isChunkyDonutLUT && !isPhiRingPPTower72NoDivNoNeg && !isPhiRingPPTower72NoDivNoNegCorr){
-	    ((origTowIEt.at(sI))[-28])[phiI] = 0;
-	    ((origTowIEt.at(sI))[-27])[phiI] = 0;
-	    ((origTowIEt.at(sI))[-26])[phiI] = 0;
-	    ((origTowIEt.at(sI))[-25])[phiI] = 0;
-	    
-	    ((origTowIEt.at(sI))[28])[phiI] = 0;
-	    ((origTowIEt.at(sI))[27])[phiI] = 0;
-	    ((origTowIEt.at(sI))[26])[phiI] = 0;
-	    ((origTowIEt.at(sI))[25])[phiI] = 0;		
-
+	  if(!isChunkyDonut && !isChunkyDonutLUT && !isPhiRingPPTower72NoDivNoNeg){
 	    ((newTowIEt.at(sI))[-28])[phiI] = 0;
 	    ((newTowIEt.at(sI))[-27])[phiI] = 0;
 	    ((newTowIEt.at(sI))[-26])[phiI] = 0;
@@ -1101,18 +1025,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    ((newTowIEt.at(sI))[26])[phiI] = 0;
 	    ((newTowIEt.at(sI))[25])[phiI] = 0;		
 	  }
-	  else if(isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr){
-	    
-	    ((origTowIEt.at(sI))[-28])[phiI] = 0;
-            ((origTowIEt.at(sI))[-27])[phiI] = 0;
-            ((origTowIEt.at(sI))[-26])[phiI] = 0;
-            ((origTowIEt.at(sI))[-25])[phiI] = 0;
-
-            ((origTowIEt.at(sI))[28])[phiI] = 0;
-            ((origTowIEt.at(sI))[27])[phiI] = 0;
-            ((origTowIEt.at(sI))[26])[phiI] = 0;
-            ((origTowIEt.at(sI))[25])[phiI] = 0;
-	    
+	  else if(isPhiRingPPTower72NoDivNoNeg){
 	    ((newTowIEt.at(sI))[-28])[phiI] = multFact*200;
             ((newTowIEt.at(sI))[-27])[phiI] = multFact*200;
             ((newTowIEt.at(sI))[-26])[phiI] = multFact*200;
@@ -1123,10 +1036,50 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
             ((newTowIEt.at(sI))[26])[phiI] = multFact*200;
             ((newTowIEt.at(sI))[25])[phiI] = multFact*200;
 	  }
-	}       
+	}
 	
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
+	
 
+	/*      
+	const std::string csvStr = "output/l1Towers_" + subType[sI] + "_Run" + std::to_string(evt->run) + "_Lumi" + std::to_string(evt->lumi) + "_Evt" + std::to_string(evt->event) + "_" + dateStr + ".csv";
+	
+	std::cout << csvStr << std::endl;
+	std::ofstream file(csvStr.c_str());
+	
+	
+	std::string disp = "  ,";
+	file << disp;
+	//std::cout << disp;
+	for(int etaI = -41; etaI <= 41; ++etaI){
+	  disp = std::to_string(TMath::Abs(etaI)) + ",";
+	  if(disp.size() == 2) disp = " " + disp;
+	  file << disp;
+	  //std::cout << disp;
+	}
+	file << std::endl;
+	//std::cout << std::endl;
+	
+	for(int phiI = 0; phiI <= nIPhi; ++phiI){	
+	  disp = std::to_string(phiI) + ",";
+	  if(disp.size() == 2) disp = " " + disp;
+	  file << disp;
+	  //std::cout << disp;
+	  
+	  for(int etaI = -41; etaI <= 41; ++etaI){
+	    disp = std::to_string(((newTowIEt.at(sI))[etaI])[phiI]);
+	    if(disp.size() == 1) disp = " " + disp + ",";
+	    else if(disp.size() == 2) disp = disp + ",";
+	    
+	    file << disp;
+	    //std::cout << disp;
+	  }
+	  file << std::endl;
+	  //std::cout << std::endl;
+	}    
+	file.close();
+	//std::cout << __LINE__ << std::endl;
+	*/
+	
 	std::vector<int> jetPt;
 	std::vector<int> jetPhi;
 	std::vector<int> jetEta;
@@ -1135,8 +1088,10 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	std::vector<int> seedPt;
 	
 	for(int etaI = -41; etaI <= 41; ++etaI){
-	  if(etaI == 0) continue;	  
-	  if(!isChunkyDonut && !isChunkyDonut_HF12 && !isChunkyDonut_HF16 && !isChunkyDonutLUT && !isChunkySandwich && !isChunkySandwichMask && !isChunkySandwich4 && !isChunkySandwich4_HF12 && !isChunkySandwich4_HF16 && !isChunkySandwich8 && !isChunkySandwich8_Low && !isChunkySandwich8_Half && !isChunkyLunch){
+	  
+	  if(etaI == 0) continue;
+	  
+	  if(!isChunkyDonut && !isChunkyDonutLUT && !isChunkySandwich && !isChunkySandwichMask && !isChunkyLunch){
 	    if(etaI == -25) continue;
 	    if(etaI == -26) continue;
 	    if(etaI == -27) continue;
@@ -1148,216 +1103,17 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    if(etaI == 28) continue;
 	  }
 	  
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
 	  for(int phiI = 0; phiI <= nIPhi; ++phiI){
-	    if(TMath::Abs(etaI) >= 30){
-	      if(isChunkyDonut_HF12 || isChunkySandwich4_HF12){
-		if(((newTowIEt.at(sI))[etaI])[phiI] < minSeedThreshHF12*multFact) continue;
-	      }
-	      else if(isChunkyDonut_HF16 || isChunkySandwich4_HF16){
-		if(((newTowIEt.at(sI))[etaI])[phiI] < minSeedThreshHF16*multFact) continue;
-	      }
-	      else{
-		if(((newTowIEt.at(sI))[etaI])[phiI] < minSeedThresh*multFact) continue;
-	      }
-	    }
-	    else{
-	      if(((newTowIEt.at(sI))[etaI])[phiI] < minSeedThresh*multFact) continue;
-	    }
-
-	    int tempJetPt = 0;
-	    bool goodSeed = true;
-	    
-	    for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
-	      int etaPos2 = etaI2;
-	      if(etaI > 0 && etaPos2 <= 0) etaPos2--;
-	      if(etaI < 0 && etaPos2 >= 0) etaPos2++;
-	      
-	      if(!isChunkyDonut && !isChunkyDonut_HF12 && !isChunkyDonut_HF16 && !isChunkyDonutLUT && !isChunkySandwich && !isChunkySandwichMask && !isChunkyLunch && !isChunkySandwich4 && !isChunkySandwich4_HF12 && !isChunkySandwich4_HF16 && !isChunkySandwich8 && !isChunkySandwich8_Low && !isChunkySandwich8_Half){
-		if(etaPos2 == -25) continue;
-		if(etaPos2 == -26) continue;
-		if(etaPos2 == -27) continue;
-		if(etaPos2 == -28) continue;
-		
-		if(etaPos2 == 25) continue;
-		if(etaPos2 == 26) continue;
-		if(etaPos2 == 27) continue;
-		if(etaPos2 == 28) continue;
-	      }
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
-		int phiPos = phiI2;
-		if(phiPos <= 0) phiPos += nIPhi;
-		if(phiPos > nIPhi) phiPos -= nIPhi;
-		
-		tempJetPt += ((newTowIEt.at(sI))[etaPos2])[phiPos];
-		
-		if(etaPos2 == etaI && phiPos == phiI) continue;
-		else{
-		  int dPhi = phiI2 - phiI + 4;
-		  int dEta = etaI2 - etaI + 4;
-		  
-		  if(mask_[8-dPhi][dEta] == 1 && ((newTowIEt.at(sI))[etaI])[phiI] < (newTowIEt.at(sI))[etaPos2][phiPos]){
-		    if((!isChunkySandwichMask && !isChunkyLunch) || TMath::Abs(etaI2) < 25 || TMath::Abs(etaI2) > 29){
-		      goodSeed = false;
-		    }
-		  }
-		  else if(mask_[8-dPhi][dEta] == 2 && ((newTowIEt.at(sI))[etaI])[phiI] <= ((newTowIEt.at(sI))[etaPos2])[phiPos]){
-		    if((!isChunkySandwichMask && !isChunkyLunch) || TMath::Abs(etaI2) < 25 || TMath::Abs(etaI2) > 29){
-		      goodSeed = false;
-		    }
-		  }
-		  
-		  if(!goodSeed){
-		    break;
-		  }
-		}
-	      }
-	      if(!goodSeed) break;
-	    }
-	    
-	    if(!goodSeed) continue;
-	    
-	    if(isChunkyDonut || isChunkyDonut_HF12 || isChunkyDonut_HF16 || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich || isChunkySandwichMask || isChunkyLunch || isChunkySandwich4 || isChunkySandwich4_HF12 || isChunkySandwich4_HF16 || isChunkySandwich8 || isChunkySandwich8_Low || isChunkySandwich8_Half){
-	      int ptFlapPhiUp = 0;
-	      int ptFlapPhiUp2 = 0;
-	      int ptFlapPhiUp3 = 0;
-	      int ptFlapPhiUp4 = 0;
-	      int ptFlapPhiDown = 0;
-	      int ptFlapPhiDown2 = 0;
-	      int ptFlapPhiDown3 = 0;
-	      int ptFlapPhiDown4 = 0;
-	      
-	      int ptFlapEtaUp = 0;
-	      int ptFlapEtaDown = 0;
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
+	    if(((newTowIEt.at(sI))[etaI])[phiI] >= minSeedThresh*multFact){
+	      int tempJetPt = 0;
+	      bool goodSeed = true;
 	      
 	      for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
-		Int_t etaPos = etaI2;
-		if(etaI < 0 && etaPos >= 0) etaPos++;
-		if(etaI > 0 && etaPos <= 0) etaPos--;
+		int etaPos2 = etaI2;
+		if(etaI > 0 && etaPos2 <= 0) etaPos2--;
+		if(etaI < 0 && etaPos2 >= 0) etaPos2++;
 		
-		for(Int_t phiI2 = phiI + 5; phiI2 <= phiI + 16; ++phiI2){ 	      
-		  int phiPos = phiI2;
-		  if(phiPos <= 0) phiPos += nIPhi;
-		  if(phiPos > nIPhi) phiPos -= nIPhi;
-		  
-		  if(phiI2 >= phiI+5 && phiI2 <= phiI + 7) ptFlapPhiUp += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI+8 && phiI2 <= phiI + 10) ptFlapPhiUp2 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI+11 && phiI2 <= phiI + 13) ptFlapPhiUp3 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI+14 && phiI2 <= phiI + 16) ptFlapPhiUp4 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		}
-	      }
-	      
-	      for(Int_t etaI2 = TMath::Max(etaI - 4, -41); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
-		Int_t etaPos = etaI2;
-		if(etaI < 0 && etaPos >= 0) etaPos++;
-		if(etaI > 0 && etaPos <= 0) etaPos--;
-		
-		for(Int_t phiI2 = phiI - 16; phiI2 <= phiI - 5; ++phiI2){ 	      
-		  int phiPos = phiI2;
-		  if(phiPos <= 0) phiPos += nIPhi;
-		  if(phiPos > nIPhi) phiPos -= nIPhi;
-		  
-		  if(phiI2 >= phiI - 7 && phiI2 <= phiI - 5) ptFlapPhiDown += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI - 10 && phiI2 <= phiI - 8) ptFlapPhiDown2 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI - 13 && phiI2 <= phiI - 11) ptFlapPhiDown3 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		  else if(phiI2 >= phiI - 16 && phiI2 <= phiI - 14) ptFlapPhiDown4 += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		}
-	      }
-	      
-	      for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
-		int phiPos = phiI2;
-		if(phiPos <= 0) phiPos += nIPhi;
-		if(phiPos > nIPhi) phiPos -= nIPhi;
-		
-		for(Int_t etaI2 = TMath::Max(-41, etaI - 7); etaI2 <= TMath::Max(-41, etaI - 5); ++etaI2){
-		  Int_t etaPos = etaI2;
-		  if(etaI < 0 && etaPos >= 0) etaPos++;
-		  if(etaI > 0 && etaPos <= 0) etaPos--;
-		  
-		  ptFlapEtaDown += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		}
-	      }
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
-		int phiPos = phiI2;
-		if(phiPos <= 0) phiPos += nIPhi;
-		if(phiPos > nIPhi) phiPos -= nIPhi;
-		
-		for(Int_t etaI2 = TMath::Min(41, etaI + 5); etaI2 <= TMath::Min(41, etaI + 7); ++etaI2){
-		  Int_t etaPos = etaI2;
-		  if(etaI < 0 && etaPos >= 0) etaPos++;
-		  if(etaI > 0 && etaPos <= 0) etaPos--;
-		  
-		  ptFlapEtaUp += ((newTowIEt.at(sI))[etaPos])[phiPos];
-		}
-	      }
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-		
-	      std::vector<int> flaps = {ptFlapEtaUp, ptFlapEtaDown, ptFlapPhiUp, ptFlapPhiDown};
-	      std::sort(std::begin(flaps), std::end(flaps));
-	      
-	      std::vector<int> phiFlaps = {ptFlapPhiUp, ptFlapPhiDown};
-	      std::vector<int> phiFlaps4 = {ptFlapPhiUp2, ptFlapPhiUp, ptFlapPhiDown, ptFlapPhiDown2};
-	      std::vector<int> phiFlaps8 = {ptFlapPhiUp4, ptFlapPhiUp3, ptFlapPhiUp2, ptFlapPhiUp, ptFlapPhiDown, ptFlapPhiDown2, ptFlapPhiDown3, ptFlapPhiDown4};
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      std::sort(std::begin(phiFlaps), std::end(phiFlaps));
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      std::sort(std::begin(phiFlaps4), std::end(phiFlaps4));
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      std::sort(std::begin(phiFlaps8), std::end(phiFlaps8));
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      if(isChunkyDonut || isChunkyDonut_HF12 || isChunkyDonut_HF16 || isChunkyDonutLUT || isChunkyDonutZero) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
-	      else if(isChunkySandwich || isChunkySandwichMask) tempJetPt -= phiFlaps.at(0) + phiFlaps.at(0) + phiFlaps.at(1);
-	      else if(isChunkySandwich4 || isChunkySandwich4_HF12 || isChunkySandwich4_HF16) tempJetPt -= phiFlaps4.at(0) + phiFlaps4.at(1) + phiFlaps4.at(2);
-	      else if(isChunkySandwich8) tempJetPt -= phiFlaps8.at(1) + phiFlaps8.at(2) + phiFlaps8.at(3);
-	      else if(isChunkySandwich8_Low) tempJetPt -= phiFlaps8.at(0) + phiFlaps8.at(1) + phiFlaps8.at(2);
-	      else if(isChunkySandwich8_Half) tempJetPt -= (phiFlaps8.at(0) + phiFlaps8.at(1) + phiFlaps8.at(2) + phiFlaps8.at(3) + phiFlaps8.at(4) + phiFlaps8.at(5))/2;
-	      else if(isChunkyDonutHIMod){
-		if(TMath::Abs(etaI) < 30) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
-		else tempJetPt -= (flaps.at(2) + flaps.at(2) + flaps.at(3));
-	      }
-	      else if(isChunkyLunch){
-		if(TMath::Abs(etaI) <= 17) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
-		else tempJetPt -= (phiFlaps.at(0) + phiFlaps.at(0) + phiFlaps.at(1));
-		
-	      }
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-	      
-	      if(tempJetPt < 0) tempJetPt = 0;
-	    }
-	    
-	    if((newTowIEt.at(sI))[etaI][phiI] == 510 || (newTowIEt.at(sI))[etaI][phiI] == 509 || (newTowIEt.at(sI))[etaI][phiI] == 511) tempJetPt = 2047;
-	    
-	    if(isPhiRingPPTower72 || isPhiRingHITower144 || isPhiRingHIRegion288) tempJetPt /= multFact;
-	    
-	    if(tempJetPt <= 0) continue;
-	    
-	    if(TMath::Abs(etaI) < 25 || TMath::Abs(etaI) > 29 || !isChunkyDonutLUT){
-	      if(isPhiRingPPTower72NoDivCorr){
-		Double_t corrPt = 0;
-		
-		for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
-		  int etaPos2 = etaI2;
-		  if(etaI > 0 && etaPos2 <= 0) etaPos2--;
-		  if(etaI < 0 && etaPos2 >= 0) etaPos2++;
-		  
+		if(!isChunkyDonut && !isChunkyDonutLUT && !isChunkySandwich && !isChunkySandwichMask && !isChunkyLunch){
 		  if(etaPos2 == -25) continue;
 		  if(etaPos2 == -26) continue;
 		  if(etaPos2 == -27) continue;
@@ -1367,95 +1123,214 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		  if(etaPos2 == 26) continue;
 		  if(etaPos2 == 27) continue;
 		  if(etaPos2 == 28) continue;
+		}
+		
+		for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
+		  int phiPos = phiI2;
+		  if(phiPos <= 0) phiPos += nIPhi;
+		  if(phiPos > nIPhi) phiPos -= nIPhi;
 		  
-		  Int_t origNineTow = 0;
+		  tempJetPt += ((newTowIEt.at(sI))[etaPos2])[phiPos];
 		  
-		  int puEtaPos = etaPos2;
+		  if(etaPos2 == etaI && phiPos == phiI) continue;
+		  else{
+		    int dPhi = phiI2 - phiI + 4;
+		    int dEta = etaI2 - etaI + 4;
 		  
-		  for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
+		    if(mask_[8-dPhi][dEta] == 1 && ((newTowIEt.at(sI))[etaI])[phiI] < (newTowIEt.at(sI))[etaPos2][phiPos]){
+		      if((!isChunkySandwichMask && !isChunkyLunch) || TMath::Abs(etaI2) < 25 || TMath::Abs(etaI2) > 29){
+			goodSeed = false;
+		      }
+		    }
+		    else if(mask_[8-dPhi][dEta] == 2 && ((newTowIEt.at(sI))[etaI])[phiI] <= ((newTowIEt.at(sI))[etaPos2])[phiPos]){
+		      if((!isChunkySandwichMask && !isChunkyLunch) || TMath::Abs(etaI2) < 25 || TMath::Abs(etaI2) > 29){
+		      goodSeed = false;
+		      }
+		    }
+		    
+		    if(!goodSeed){
+		      break;
+		    }
+		  }
+		}
+		if(!goodSeed) break;
+	      }
+	      
+	      if(!goodSeed) continue;
+	      
+	      if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero || isChunkyDonutHIMod || isChunkySandwich || isChunkySandwichMask || isChunkyLunch){
+		int ptFlapPhiUp = 0;
+		int ptFlapPhiDown = 0;
+		int ptFlapEtaUp = 0;
+		int ptFlapEtaDown = 0;
+		
+		for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
+		  Int_t etaPos = etaI2;
+		  if(etaI < 0 && etaPos >= 0) etaPos++;
+		  if(etaI > 0 && etaPos <= 0) etaPos--;
+		  
+		  for(Int_t phiI2 = phiI + 5; phiI2 <= phiI + 7; ++phiI2){ 	      
 		    int phiPos = phiI2;
 		    if(phiPos <= 0) phiPos += nIPhi;
 		    if(phiPos > nIPhi) phiPos -= nIPhi;
-		    //		      origNineTow += ((newTowIEt.at(sI))[etaPos2])[phiPos] + 36((int)((uePerEta.at(sI))[puEtaPos]));		      
+		    
+		    ptFlapPhiUp += ((newTowIEt.at(sI))[etaPos])[phiPos];
 		  }
-		  origNineTow /= 72;
-		  
-		  Double_t tempUE = (uePerEta.at(sI))[etaPos2] - origNineTow;
-		  
-		  origNineTow *= (72 - 9);
-		  origNineTow -= 9*tempUE - 9*31;
-		  corrPt += origNineTow;
 		}
-		tempJetPt = corrPt;
+		
+		for(Int_t etaI2 = TMath::Max(etaI - 4, -41); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
+		  Int_t etaPos = etaI2;
+		  if(etaI < 0 && etaPos >= 0) etaPos++;
+		  if(etaI > 0 && etaPos <= 0) etaPos--;
+		  
+		  for(Int_t phiI2 = phiI - 7; phiI2 <= phiI - 5; ++phiI2){ 	      
+		    int phiPos = phiI2;
+		    if(phiPos <= 0) phiPos += nIPhi;
+		    if(phiPos > nIPhi) phiPos -= nIPhi;
+		    
+		    ptFlapPhiDown += ((newTowIEt.at(sI))[etaPos])[phiPos];
+		  }
+		}
+		
+		for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
+		  int phiPos = phiI2;
+		  if(phiPos <= 0) phiPos += nIPhi;
+		  if(phiPos > nIPhi) phiPos -= nIPhi;
+		  
+		  for(Int_t etaI2 = TMath::Max(-41, etaI - 7); etaI2 <= TMath::Max(-41, etaI - 5); ++etaI2){
+		    Int_t etaPos = etaI2;
+		    if(etaI < 0 && etaPos >= 0) etaPos++;
+		    if(etaI > 0 && etaPos <= 0) etaPos--;
+		    
+		    ptFlapEtaDown += ((newTowIEt.at(sI))[etaPos])[phiPos];
+		  }
+		}
+		
+		for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
+		  int phiPos = phiI2;
+		  if(phiPos <= 0) phiPos += nIPhi;
+		  if(phiPos > nIPhi) phiPos -= nIPhi;
+		  
+		  for(Int_t etaI2 = TMath::Min(41, etaI + 5); etaI2 <= TMath::Min(41, etaI + 7); ++etaI2){
+		    Int_t etaPos = etaI2;
+		    if(etaI < 0 && etaPos >= 0) etaPos++;
+		    if(etaI > 0 && etaPos <= 0) etaPos--;
+		    
+		    ptFlapEtaUp += ((newTowIEt.at(sI))[etaPos])[phiPos];
+		  }
+		}
+		
+		std::vector<int> flaps = {ptFlapEtaUp, ptFlapEtaDown, ptFlapPhiUp, ptFlapPhiDown};
+		std::sort(std::begin(flaps), std::end(flaps));
+
+		std::vector<int> phiFlaps = {ptFlapPhiUp, ptFlapPhiDown};
+		std::sort(std::begin(phiFlaps), std::end(phiFlaps));
+		
+		if(isChunkyDonut || isChunkyDonutLUT || isChunkyDonutZero) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
+		else if(isChunkySandwich || isChunkySandwichMask) tempJetPt -= phiFlaps.at(0) + phiFlaps.at(0) + phiFlaps.at(1);
+		else if(isChunkyDonutHIMod){
+		  if(TMath::Abs(etaI) < 30) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
+		  else tempJetPt -= (flaps.at(2) + flaps.at(2) + flaps.at(3));
+		}
+		else if(isChunkyLunch){
+		  if(TMath::Abs(etaI) <= 17) tempJetPt -= (flaps.at(0) + flaps.at(1) + flaps.at(2));
+		  else tempJetPt -= (phiFlaps.at(0) + phiFlaps.at(0) + phiFlaps.at(1));
+		}
+		
+		if(tempJetPt < 0) tempJetPt = 0;
+		if(tempJetPt > 0){
+		  //	      std::cout << " Flaps: " << flaps.at(0) << ", " << flaps.at(1) << ", " << flaps.at(2) << ", " << flaps.at(3) << std::endl;
+		}
 	      }
 	      
-	      if(isPhiRingPPTower72NoDivNoNeg || isPhiRingPPTower72NoDivNoNegCorr){
-		int rowsExclude = 0;
-		if(TMath::Abs(etaI) == 24 || TMath::Abs(etaI) == 29) rowsExclude = 4;
-		if(TMath::Abs(etaI) == 23 || TMath::Abs(etaI) == 30) rowsExclude = 3;
-		if(TMath::Abs(etaI) == 22 || TMath::Abs(etaI) == 31) rowsExclude = 2;
-		if(TMath::Abs(etaI) == 21 || TMath::Abs(etaI) == 32) rowsExclude = 1;
-
-		if(isPhiRingPPTower72NoDivNoNegCorr){
+	      if((newTowIEt.at(sI))[etaI][phiI] == 510 || (newTowIEt.at(sI))[etaI][phiI] == 509 || (newTowIEt.at(sI))[etaI][phiI] == 511) tempJetPt = 2047;
+	      
+	      if(isPhiRingPPTower72 || isPhiRingHITower144 || isPhiRingHIRegion288) tempJetPt /= multFact;
+	      
+	      if(tempJetPt <= 0) continue;
+	      
+	      if(TMath::Abs(etaI) < 25 || TMath::Abs(etaI) > 29 || !isChunkyDonutLUT){
+		if(isPhiRingPPTower72NoDivCorr){
+		  Double_t corrPt = 0;
+	      
 		  for(Int_t etaI2 = TMath::Max(-41, etaI - 4); etaI2 <= TMath::Min(41, etaI + 4); ++etaI2){	
 		    int etaPos2 = etaI2;
 		    if(etaI > 0 && etaPos2 <= 0) etaPos2--;
 		    if(etaI < 0 && etaPos2 >= 0) etaPos2++;
+		    
+		    if(etaPos2 == -25) continue;
+		    if(etaPos2 == -26) continue;
+		    if(etaPos2 == -27) continue;
+		    if(etaPos2 == -28) continue;
+		    
+		    if(etaPos2 == 25) continue;
+		    if(etaPos2 == 26) continue;
+		    if(etaPos2 == 27) continue;
+		    if(etaPos2 == 28) continue;
+
+		    Int_t origNineTow = 0;
 
 		    int puEtaPos = etaPos2;
-		    if(puEtaPos >= 29) puEtaPos--;
-		    else if(puEtaPos <= -29) puEtaPos++;
-
-		    int stripSumJet = 0;
-		    
+		    //		    if(puEtaPos >= 29) puEtaPos--;
+		    //		    else if(puEtaPos <= -29) puEtaPos++;
+		
 		    for(Int_t phiI2 = phiI - 4; phiI2 <= phiI + 4; ++phiI2){ 	      
 		      int phiPos = phiI2;
 		      if(phiPos <= 0) phiPos += nIPhi;
 		      if(phiPos > nIPhi) phiPos -= nIPhi;
 
-		      stripSumJet += ((origTowIEt.at(sI))[etaPos2])[phiPos];
-		    }
-
-		    int stripSumNotJet = ((int)((uePerEta.at(sI))[puEtaPos])) - stripSumJet;
-		    if(etaI == 10 && phiI == 52 && false){
-		      std::cout << "temp jetpt, ieta, stripSumJet, UE, stripSumNotJet: " << tempJetPt << ", " << etaI << ", " << stripSumJet << ", " << ((uePerEta.at(sI))[puEtaPos]) << ", " << stripSumNotJet << std::endl;
-		    }
-
-		    tempJetPt += 9*stripSumJet - 9*stripSumNotJet/7;		    
+		      if(isPhiRingPPTower72NoDivCorr){
+			//			std::cout << "Compare " << ((newTowIEt.at(sI))[etaPos2])[phiPos] << ", " << etaPos2 << ", " << phiPos << std::endl;
+			//			std::cout << " Add" << ((int)((uePerEta.at(sI))[puEtaPos])) << std::endl;
+			//			std::cout << " Add 36..." << std::endl;
+			//			std::cout << " Final " << ((newTowIEt.at(sI))[etaPos2])[phiPos] + 36 + ((int)((uePerEta.at(sI))[puEtaPos])) << std::endl;
 		    
-		    if(notYetPrintedUE && false){
-		      
-		      std::map<Int_t, Int_t>::iterator ueIt;
-		      std::cout << "Pringing uePerEta: " << std::endl;
-		      for(ueIt = uePerEta.at(sI).begin(); ueIt != uePerEta.at(sI).end(); ueIt++){
-			std::cout << " " << ueIt->first << ": " << ueIt->second << ",";
+			if((((newTowIEt.at(sI))[etaPos2])[phiPos] + 36 + ((int)((uePerEta.at(sI))[puEtaPos])))%72 != 0){
+			  //			  std::cout << "UH OH ERROR " << etaPos2 << ", " << phiPos << std::endl;
+			}
 		      }
-		      std::cout << std::endl;
 
-		      notYetPrintedUE = false;
+		      //		      origNineTow += ((newTowIEt.at(sI))[etaPos2])[phiPos] + 36((int)((uePerEta.at(sI))[puEtaPos]));		      
 		    }
+		    origNineTow /= 72;
+		    
+		    Double_t tempUE = (uePerEta.at(sI))[etaPos2] - origNineTow;
+		    
+		    origNineTow *= (72 - 9);
+		    origNineTow -= 9*tempUE - 9*31;
+		    corrPt += origNineTow;
 		  }
+		  tempJetPt = corrPt;
 		}
-		
-		tempJetPt -= (81 - 9*rowsExclude)*multFact*200;
-		if(tempJetPt < 0) continue;
+	      
+		if(isPhiRingPPTower72NoDivNoNeg){
+		  //		  std::cout << "Check: " << tempJetPt;
+
+		  int rowsExclude = 0;
+		  if(TMath::Abs(etaI) == 24 || TMath::Abs(etaI) == 29) rowsExclude = 4;
+		  if(TMath::Abs(etaI) == 23 || TMath::Abs(etaI) == 30) rowsExclude = 3;
+		  if(TMath::Abs(etaI) == 22 || TMath::Abs(etaI) == 31) rowsExclude = 2;
+		  if(TMath::Abs(etaI) == 21 || TMath::Abs(etaI) == 32) rowsExclude = 1;
+
+		  tempJetPt -= (81 - 9*rowsExclude)*multFact*200;
+		  //		  std::cout << ", " << tempJetPt << std::endl;
+		  if(tempJetPt < 0) continue;
+		}
+
+		jetPt.push_back(tempJetPt);
+		jetPhi.push_back(phiI);
+		jetEta.push_back(etaI);
+		jetPhiPrev.push_back(phiI);
+		jetEtaPrev.push_back(etaI);
+		seedPt.push_back(((newTowIEt.at(sI))[etaI])[phiI]/multFact);
 	      }
-	    
-	      
-	      
-	      jetPt.push_back(tempJetPt);
-	      jetPhi.push_back(phiI);
-	      jetEta.push_back(etaI);
-	      jetPhiPrev.push_back(phiI);
-	      jetEtaPrev.push_back(etaI);
-	      seedPt.push_back(((newTowIEt.at(sI))[etaI])[phiI]/multFact);
 	    }
 	  }
-	
 	}
-      
-	//std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
+	
+	//  if(jetPt.size() == 0) continue;
+	
+	//std::cout << __LINE__ << std::endl;
 	
 	if(jetPt.size() > 0){
 	  for(unsigned int jI = 0; jI < jetPt.size() - 1; ++jI){
@@ -1484,25 +1359,52 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	      } 
 	    }
 	  }
-	}           
+	}
+	
+	if(isFileType[sI]){
+	  for(unsigned int jI = 0; jI < upgrade->jetIEt.size(); ++jI){
+	    bool isJtFound = false;
+	    
+	    for(unsigned int jI2 = 0; jI2 < jetPt.size(); ++jI2){
+	      if(jetPt.at(jI2) != upgrade->jetIEt.at(jI)) continue;
+	      if(gtPhi(jetPhi.at(jI2)) != upgrade->jetIPhi.at(jI)) continue;
+	      if(gtEta(jetEta.at(jI2)) != upgrade->jetIEta.at(jI)) continue;
+	      
+	      isJtFound = true;
+	      break;
+	    }
+	    
+	    if(!isJtFound){
+	      std::cout << "Warning in event: " << evt->event << ", entry " << entry << std::endl;
+	      std::cout << " Cannot find jet (pt, phi, eta): " << upgrade->jetIEt.at(jI) << ", " << upgrade->jetIPhi.at(jI) << ", " << upgrade->jetIEta.at(jI) << std::endl;
+	      std::cout << " Candidates were (using sub type " << subType[sI] << "): " << std::endl;
+	      for(unsigned int jI2 = 0; jI2 < jetPt.size(); ++jI2){
+		std::cout << "  " << jetPt.at(jI2) << ", " << jetPhi.at(jI2) << ", " << jetEta.at(jI2) << std::endl;
+	      }
+	    }
+	  }
+	}
+     
 
-      
 	for(Int_t lI = 0; lI < nL1Thresh; ++lI){
 	  triggerOpp[nRhoBins][sI][lI]++;
 	  
 	  if(jetPt.size() > 0){
 	    if(jetPt.at(0) > l1ThreshPt[lI]*threshMultFact){
 	      triggerFires[nRhoBins][sI][lI]++;	  
-	      trigFirePt[nRhoBins][sI][lI] = jetPt.at(0);
-	      trigFireEta[nRhoBins][sI][lI] = jetEta.at(0);
-	      trigFirePhi[nRhoBins][sI][lI] = jetPhi.at(0);
-	      isTriggerFired[nRhoBins][sI][lI] = true;
 	    }
+	    
+	    /*       
+		     for(unsigned int jI = 0; jI < TMath::Min(1, jetPt.size()); ++jI){
+		     if(jetPt.at(jI) > l1ThreshPt[lI]) triggerEta_L1Pt_h[nRhoBins][sI][lI]->Fill(jetEta.at(jI));
+		     }
+	    */
+	    
 	  }
 	}
 	
 	
-      
+	
 	if(doForest){
 	  Int_t centPos = -1;
 	  for(Int_t cI = 0; cI < nRhoBins; ++cI){
@@ -1523,10 +1425,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    if(jetPt.size() > 0){
 	      if(jetPt.at(0) > l1ThreshPt[lI]*threshMultFact){
 		triggerFires[centPos][sI][lI]++;	  
-		trigFirePt[centPos][sI][lI] = jetPt.at(0);
-		trigFireEta[centPos][sI][lI] = jetEta.at(0);
-		trigFirePhi[centPos][sI][lI] = jetPhi.at(0);
-		isTriggerFired[centPos][sI][lI] = true;
 	      }
 	    }
 	  }
@@ -1539,8 +1437,21 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	      }
 	    }
 	  }
-
-	
+	  
+	  /*
+	    for(Int_t lI = 0; lI < nL1Thresh; ++lI){
+	    triggerOpp[nRhoBins][sI][lI]++;
+	    triggerOpp[centPos][sI][lI]++;
+	    
+	    if(jetPt.at(0) > l1ThreshPt[lI]){
+	    triggerFires[nRhoBins][sI][lI]++;	  
+	    triggerFires[centPos][sI][lI]++;
+	    }
+	    }
+	  */
+	  
+	  
+	  
 	  for(Int_t tI = 0; tI < nJetTrees; ++tI){	    
 	    Float_t tempLeadingJtPt_ = -999;
 	    Float_t tempLeadingJtPhi_ = -999;
@@ -1582,13 +1493,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		}
 	      }
 	    }
-
-	    if(sI == 0){
-	      tempLeadingJtPtVect_.push_back(tempLeadingJtPt_);
-	      tempLeadingJtPhiVect_.push_back(tempLeadingJtPhi_);
-	      tempLeadingJtEtaVect_.push_back(tempLeadingJtEta_);
-	    }
-	  
+	    
 	    Int_t jtAbsEtaPos = -1;
 	    for(Int_t aI = 0; aI < nJtAbsEtaBins; ++aI){
 	      if(TMath::Abs(tempLeadingJtEta_) >= jtAbsEtaBinsLow[aI] && TMath::Abs(tempLeadingJtEta_) < jtAbsEtaBinsHi[aI]){
@@ -1596,41 +1501,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		break;
 	      }
 	    }
-
-	  
-	    //print misfires
-	    /*
-	    if(jetTrees.at(tI).find("Calo") != std::string::npos){
-	      Int_t startPosRI = 0;
-	      Int_t endPosRI = nRhoBins;
-	      if(!doForest){
-		startPosRI = nRhoBins;
-		endPosRI = nRhoBins+1;
-	      }
-	      for(Int_t rI = startPosRI; rI < endPosRI; ++rI){
-		for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-		  if(l1ThreshPt[lI] < 100) continue;
-		  
-		  if(tempLeadingJtPt_ < 50 && isTriggerFired[rI][sI][lI]){
-		    std::cout << "Entry " << entry << " < 50 but trigger " << subType[sI] << " fires (Rho " << rhoBinsLow[rI] << "-" << rhoBinsHi[rI] << "): " << std::endl;
-		    std::cout << " " << tempLeadingJtPt_ << ", " << tempLeadingJtEta_ << std::endl;
-		    std::cout << " " << trigFirePt[rI][sI][lI] << ", " << trigFireEta[rI][sI][lI] << ", " << trigFirePhi[rI][sI][lI] << std::endl;
-
-		    for(Int_t sI2 = 0; sI2 < nSubType; ++sI2){
-		      if(sI2 == sI) continue;
-		      double tempPt = trigFirePt[rI][sI2][0];
-
-		      if(subType[sI2].find("hiRingPPTower72NoDivNoNeg") != std::string::npos) tempPt /= 72.;
-
-		      std::cout << "  other algo " << subType[sI2] << " lead: " << tempPt << ", " << trigFireEta[rI][sI2][0] << ", " << trigFirePhi[rI][sI2][0] << std::endl;
-		    }
-
-		  }		  		
-		}
-	      }
-	    }
-	    */
-
+	    
 	    if(tempLeadingJtPt_ >= jtPtHi) tempLeadingJtPt_ = jtPtHi - 1;
 	    
 	    if(tempLeadingJtPt_ >= jtPtLow && tempLeadingJtPt_ < jtPtHi){
@@ -1651,7 +1522,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	      
 	      for(Int_t lI = 0; lI < nL1Thresh; ++lI){
 		if(leadL1Pt > l1ThreshPt[lI]*threshMultFact){
-		  if(jtAbsEtaPos >= 0) leadingJetPt_L1Pt_h[tI][centPos][jtAbsEtaPos][sI][lI]->Fill(tempLeadingJtPt_, weight);		  
+		  if(jtAbsEtaPos >= 0) leadingJetPt_L1Pt_h[tI][centPos][jtAbsEtaPos][sI][lI]->Fill(tempLeadingJtPt_, weight);
 		  leadingJetPt_L1Pt_h[tI][centPos][nJtAbsEtaBins][sI][lI]->Fill(tempLeadingJtPt_, weight);
 		}
 		
@@ -1672,18 +1543,47 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 		
 		if(leadL1PtDR > l1ThreshPt[lI]*threshMultFact){
 		  if(jtAbsEtaPos >= 0) leadingJetPt_L1Pt_DR_h[tI][centPos][jtAbsEtaPos][sI][lI]->Fill(tempLeadingJtPt_, weight);
-		  leadingJetPt_L1Pt_DR_h[tI][centPos][nJtAbsEtaBins][sI][lI]->Fill(tempLeadingJtPt_, weight);		 
+		  leadingJetPt_L1Pt_DR_h[tI][centPos][nJtAbsEtaBins][sI][lI]->Fill(tempLeadingJtPt_, weight);
+		  
+		  if(false/*tempLeadingJtPt_ < 30 && l1ThreshPt[lI] == 64 && jetTrees.at(tI).find("Calo") != std::string::npos*/){
+		    std::cout << "Found < 30 jet with l1 64 in entry " << entry << std::endl;
+		    std::cout << " run, lumi, evt: " << evt->run << ", " << evt->lumi << ", " << evt->event << std::endl;
+		    std::cout << " jetpt, phi, eta: " << tempLeadingJtPt_ << ", " << tempLeadingJtPhi_ << ", " << tempLeadingJtEta_ << std::endl;
+		    std::cout << "  options (pt, phi, eta): " << std::endl;
+		    for(unsigned int lI2 = 0; lI2 < jetPt.size(); ++lI2){
+		      std::cout << "   " << jetPt.at(lI2) << ", " << towerPhi(jetPhi.at(lI2)) << ", " << towerEta(jetEta.at(lI2)) << std::endl;
+		      std::cout << "    " << jetPhi.at(lI2) << ", " << jetEta.at(lI2) << std::endl;
+		    }
+		    
+		  }
+		}
+		else if(((Int_t)l1ThreshPt[lI]/2.) == 24 && tempLeadingJtPt_ > 100 && jetTrees.at(tI).find("Calo") != std::string::npos){
+		  std::cout << "Missed jet in entry, rhoPos " << entry << ", " << rhoBinsLow[centPos] << "-" << rhoBinsHi[centPos] << std::endl;
+		  std::cout << " run, lumi, evt: " << evt->run << ", " << evt->lumi << ", " << evt->event << std::endl;
+		  std::cout << " jetpt, phi, eta: " << tempLeadingJtPt_ << ", " << tempLeadingJtPhi_ << ", " << tempLeadingJtEta_ << std::endl;
+		  //		std::cout << "  options (pt, phi, eta): " << std::endl;
+		  for(unsigned int lI2 = 0; lI2 < jetPt.size(); ++lI2){
+		    //		  std::cout << "   " << jetPt.at(lI2) << ", " << towerPhi(jetPhi.at(lI2)) << ", " << towerEta(jetEta.at(lI2)) << std::endl;
+		    //		  std::cout << "    " << jetPhi.at(lI2) << ", " << jetEta.at(lI2) << std::endl;
+		  }
 		}
 	      }
 	    }
 	  }
-	}
-      
-
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
+	} 
+	
+	
+	//std::cout << __LINE__ << std::endl;
+	
 	if(jetPt.size() > 0){
-	  if(leadJtIEt != jetPt.at(0)) missCount++;
+	  if(leadJtIEt != jetPt.at(0)){
+	    missCount++;
+	    //      std::cout << "Lead iet, iphi, ieta, seedEt: " << leadJtIEt << ", " << leadJtIPhi << ", " << leadJtIEta << ", " << leadJtSeedPt << std::endl;
+	    //      std::cout << "NJets: " << jetPt.size() << std::endl;
+	    for(int i = 0; i < TMath::Min(8, (int)jetPt.size()); ++i){
+	      //	std::cout << " " << i << "/" << jetPt.size() << ", pt, phi, eta, seed): " << jetPt.at(i) << ", " << jetPhi.at(i) << ", " << jetEta.at(i) << ", " << seedPt.at(i) << " (" << jetPhiPrev.at(i) << ", " << jetEtaPrev.at(i) << ")" << std::endl;
+	    }
+	  }
 	  else foundCount++;
 	  
 	  if(leadJtIEt - jetPt.at(0) != 0 || jetPhi.at(0) != leadJtIPhi || jetEta.at(0) != leadJtIEta){
@@ -1694,52 +1594,13 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    phiMiss_CMSSWJet_p->Fill(leadJtIPhi, weight);
 	  }
 	}
-      }
+	//std::cout << __LINE__ << std::endl;
 
-
-	    //print misfires
-
-      for(Int_t tI = 0; tI < nJetTrees; ++tI){
-	if(jetTrees.at(tI).find("Calo") != std::string::npos){
-	  Int_t startPosRI = 0;
-	  Int_t endPosRI = nRhoBins;
-	  if(!doForest){
-	    startPosRI = nRhoBins;
-	    endPosRI = nRhoBins+1;
-	  }
-
-	  for(Int_t sI = 0; sI < nSubType; ++sI){	  
-	    for(Int_t rI = startPosRI; rI < endPosRI; ++rI){
-	      for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-		if(l1ThreshPt[lI] < 100) continue;
-		
-		if(tempLeadingJtPtVect_.at(tI) < 50 && isTriggerFired[rI][sI][lI]){
-		  double tempMajorPt = trigFirePt[rI][sI][lI];
-		  if(subType[sI].find("hiRingPPTower72NoDivNoNeg") != std::string::npos) tempMajorPt /= 72.;
-
-		  std::cout << "Entry " << entry << " < 50 but trigger " << subType[sI] << " fires (Rho " << rhoBinsLow[rI] << "-" << rhoBinsHi[rI] << "): " << std::endl;
-		  std::cout << " " << tempLeadingJtPtVect_.at(tI) << ", " << tempLeadingJtEtaVect_.at(tI) << std::endl;
-		  std::cout << " " << tempMajorPt<< ", " << trigFireEta[rI][sI][lI] << ", " << trigFirePhi[rI][sI][lI] << std::endl;
-		  
-		  for(Int_t sI2 = 0; sI2 < nSubType; ++sI2){
-		    if(sI2 == sI) continue;
-		    double tempPt = trigFirePt[rI][sI2][0];
-		    
-		    if(subType[sI2].find("hiRingPPTower72NoDivNoNeg") != std::string::npos) tempPt /= 72.;
-		    
-		    std::cout << "  other algo " << subType[sI2] << " lead: " << tempPt << ", " << trigFireEta[rI][sI2][0] << ", " << trigFirePhi[rI][sI2][0] << std::endl;
-		  }
-		  
-		}		  		
-	      }
-	    }
-	  }
-	}
       }
     }
 
-      //std::cout << "LINE: " << __LINE__ << ", " << __FILE__<< std::endl;
-
+	//std::cout << __LINE__ << std::endl;
+ 
     inFile_p->Close();
     delete inFile_p;
 
@@ -1749,17 +1610,12 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     }
   }
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
+
+  
+  //std::cout << __LINE__ << std::endl;
 
   outFile_p->cd();
   TH1F* triggerFrac_h[nRhoBins+1][nSubType];
-
-  std::string blankCommaStr = ",,";
-  for(Int_t i = 0; i < nSubType; ++i){
-    blankCommaStr = blankCommaStr + ",,,,,";
-  }
-
-  std::ofstream outRateCSV(("output/" + dateStr + "/l1OfflineSubtract_" + subtractType + "_" + extraTag + "_" + dateStr + ".csv").c_str());
 
   std::cout << "Total match: " << totalMatch << std::endl;
 
@@ -1773,13 +1629,12 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       centStr2 = std::to_string(rhoBinsLow[rI]) + " < #rho < " + std::to_string(rhoBinsHi[rI]);
     }
 
-    //std::cout << "LINE: " << __LINE__ << std::endl;
-  
-    int revRI = nRhoBins-rI;
     if(rI < nRhoBins) std::cout << "Rho: " << prettyString(rhoBinsLow[rI], 3, false) << "-" << prettyString(rhoBinsHi[rI], 3, false) << std::endl;
     else std::cout << "All rho" << std::endl;
 
     for(Int_t sI = 0; sI < nSubType; ++sI){
+      if(!doType[sI]) continue;
+
       triggerFrac_h[rI][sI] = new TH1F(("triggerFrac_" + centStr + "_" + subType[sI] + "_h").c_str(), ";L1 p_{T} Threshold;Fraction", nL1Thresh, l1ThreshPtBins);
 
       std::cout << " Sub type: " << subType[sI] << std::endl;
@@ -1798,37 +1653,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       triggerFrac_h[rI][sI]->Write("", TObject::kOverwrite);
     }
 
-  
-    if(revRI == nRhoBins){
-      outRateCSV << "Threshold,Total MB Evt,";
-
-      for(Int_t sI = 0; sI < nSubType; ++sI){
-	outRateCSV << subType[sI] << " Fires," << subType[sI] << " Fraction,Rate(Hz w/ 40kHz MB),Rate(Hz w/ 50kHz MB),";
-      }
-      outRateCSV << "," << std::endl;
-    }
-
-    std::string rhoStr = "All Rho,,";
-    if(revRI != nRhoBins) rhoStr = prettyString(rhoBinsLow[revRI], 1, false) + "<rho<" + prettyString(rhoBinsHi[revRI], 1, false) + ",,";
-
-    for(Int_t sI = 0; sI < nSubType; ++sI){
-      rhoStr + ",,,,,";
-    }
-    
-    outRateCSV << rhoStr << std::endl;;
-  
-    for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-      if(triggerOpp[revRI][0][lI] == 0) continue;
-
-      outRateCSV << l1ThreshPt[lI]/2 << "," << triggerOpp[revRI][0][lI] << ",";
-      for(Int_t sI = 0; sI < nSubType; ++sI){
-	outRateCSV << triggerFires[revRI][sI][lI] << "," << prettyString(((Double_t)triggerFires[revRI][sI][lI])/((Double_t)triggerOpp[revRI][sI][lI]), 5, false) << "," << prettyString(((Double_t)triggerFires[revRI][sI][lI])*40000./((Double_t)triggerOpp[revRI][sI][lI]), 5, false) << "," << prettyString(((Double_t)triggerFires[revRI][sI][lI])*50000./((Double_t)triggerOpp[revRI][sI][lI]), 5, false) << ",,";
-      }
-      outRateCSV << std::endl;
-    }
-
-    outRateCSV << std::endl;
-
     TCanvas* canv_p = new TCanvas("canv_p", "", 450, 450);
     canv_p->SetTopMargin(0.01);
     canv_p->SetRightMargin(0.01);
@@ -1837,9 +1661,11 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
     bool isDrawn = false;
     for(Int_t sI = 0; sI < nSubType; ++sI){
-      triggerFrac_h[rI][sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
-      triggerFrac_h[rI][sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-      triggerFrac_h[rI][sI]->SetLineColor(vg.getColor(sI%nSetColors));
+      if(!doType[sI]) continue;
+
+      triggerFrac_h[rI][sI]->SetMarkerStyle(styles[sI]);
+      triggerFrac_h[rI][sI]->SetMarkerColor(colors[sI]);
+      triggerFrac_h[rI][sI]->SetLineColor(colors[sI]);
       triggerFrac_h[rI][sI]->SetMarkerSize(1.);
       
       centerTitles(triggerFrac_h[rI][sI]);
@@ -1858,28 +1684,25 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     dummyLeg3_p->Draw("SAME");
     gStyle->SetOptStat(0);
     gPad->SetLogy();
-    const std::string saveName = "pdfDir/" + dateStr  + "/triggerFrac_" + centStr + "_" + extraTag + "_" + dateStr + ".pdf";
-    quietSaveAs(canv_p, saveName);
+    canv_p->SaveAs(("pdfDir/" + dateStr  + "/triggerFrac_" + centStr + "_" + extraTag + "_" + dateStr + ".pdf").c_str());
+
     delete canv_p;
 
     for(Int_t sI = 0; sI < nSubType; ++sI){
+      if(!doType[sI]) continue;
       delete triggerFrac_h[rI][sI];
     }
   }
-
-  outRateCSV.close();
 
   std::cout << "End tower display" << std::endl;
   
   std::cout << "Found: " << foundCount << std::endl;
   std::cout << "Miss: " << missCount << std::endl;
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
-
   std::cout << "Processing complete!" << std::endl;
-  if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
-  if(doGlobalDebug) std::cout << __FILE__ << ", " << "LINE: " << __LINE__ << std::endl;
+  if(doGlobalDebug) std::cout << __FILE__ << ", " << __LINE__ << std::endl;
 
   outFile_p->cd();
 
@@ -1889,14 +1712,14 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   pthatCanv_p->SetLeftMargin(0.14);
   pthatCanv_p->SetBottomMargin(0.14);
 
-  pthat_p->SetMarkerStyle(setStyles[0]);
-  pthat_p->SetMarkerColor(vg.getColor(0));
-  pthat_p->SetLineColor(vg.getColor(0));
+  pthat_p->SetMarkerStyle(styles[0]);
+  pthat_p->SetMarkerColor(colors[0]);
+  pthat_p->SetLineColor(colors[0]);
   pthat_p->SetMarkerSize(1);
 
-  pthatWeighted_p->SetMarkerStyle(setStyles[1]);
-  pthatWeighted_p->SetMarkerColor(vg.getColor(1));
-  pthatWeighted_p->SetLineColor(vg.getColor(1));
+  pthatWeighted_p->SetMarkerStyle(styles[1]);
+  pthatWeighted_p->SetMarkerColor(colors[1]);
+  pthatWeighted_p->SetLineColor(colors[1]);
   pthatWeighted_p->SetMarkerSize(1);
 
   pthatCanv_p->cd();
@@ -1914,8 +1737,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   gPad->SetLogy();
   gStyle->SetOptStat(0);
-  std::string saveName = "pdfDir/" + dateStr + "/pthatComp_" + extraTag + "_" + dateStr + ".pdf";
-  quietSaveAs(pthatCanv_p, saveName);
+  pthatCanv_p->SaveAs(("pdfDir/" + dateStr + "/pthatComp_" + extraTag + "_" + dateStr + ".pdf").c_str());
 
   delete pthatCanv_p;
 
@@ -1934,27 +1756,20 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   std::vector<std::vector<std::string> > threshCompInRhoBins;
   std::vector<std::vector<std::string> > threshCompInRhoBinsInv;
 
-  std::vector<std::vector<std::string> > turnOnFitParamsVRho;
-
-  std::vector<std::vector<std::string> > l1MeanSigma;
-  std::vector<std::string> l1MeanSigmaBins;
-
   for(Int_t rI = 0; rI < nRhoBins; ++rI){
     algoCompInRhoBins.push_back({});
     algoCompInRhoBinsInv.push_back({});
     threshCompInRhoBins.push_back({});
     threshCompInRhoBinsInv.push_back({});
   }
-  
+
   if(doForest){
-    std::vector< std::vector<TH1*> > num, num2, fitMid, fitWidth;
+    std::vector< std::vector<TH1*> > num, num2;
     std::vector<std::string> algo;
     std::vector<TH1*> denom, denom2;
     std::vector<std::string> rhoStr, rhoStr2;
     std::vector<int> rhoPos, rhoPos2;
     std::vector<std::vector<int> > subTypePos, subTypePos2;
-
-    //std::cout << "LINE: " << __LINE__ << std::endl;
 
     for(Int_t jI = 0; jI < nJetTrees; ++jI){
       for(Int_t cI = 0; cI < nRhoBins; ++cI){
@@ -1967,9 +1782,8 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  for(Int_t lI = 0; lI < nL1Thresh; ++lI){
 	    std::vector<TH1*> temp1, temp2;
 	    std::vector<int> type1, type2;
-	    std::vector<TH1*> tempFitMid1, tempFitMid2, tempFitWidth1, tempFitWidth2;
-
 	    for(Int_t sI = 0; sI < nSubType; ++sI){
+	      if(!doType[sI]) continue;
 	      leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI]->Write("", TObject::kOverwrite);
 	      leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]->Write("", TObject::kOverwrite);
 	      
@@ -1979,13 +1793,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	      
 	      temp1.push_back(leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI]);
 	      temp2.push_back(leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]);
-
-	      tempFitMid1.push_back(leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI]);
-	      tempFitWidth1.push_back(leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI]);
-
-	      tempFitMid2.push_back(leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI]);
-	      tempFitWidth2.push_back(leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI]);
-
 	      type1.push_back(sI);
 	      type2.push_back(sI);
 	    }
@@ -1994,10 +1801,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
             denom.push_back(leadingJetPt_h[jI][cI][aI]);
 	    num.push_back(temp1);
 	    num.push_back(temp2);
-	    fitMid.push_back(tempFitMid1);
-	    fitMid.push_back(tempFitMid2);
-	    fitWidth.push_back(tempFitWidth1);
-	    fitWidth.push_back(tempFitWidth2);
 	    rhoStr.push_back(centStr2);
 	    rhoStr.push_back(centStr2);
 	    rhoPos.push_back(cI);
@@ -2010,14 +1813,14 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
 
 	  for(Int_t sI = 0; sI < nSubType; ++sI){
+	    if(!doType[sI]) continue;
+
 	    std::vector<TH1*> temp1, temp2;
 
 	    for(Int_t lI = 0; lI < nL1Thresh; ++lI){
 	      temp1.push_back(leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI]);
               temp2.push_back(leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI]);
 	    }
-
-	    //std::cout << "LINE: " << __LINE__ << std::endl;
 
 	    denom2.push_back(leadingJetPt_h[jI][cI][aI]);
 	    denom2.push_back(leadingJetPt_h[jI][cI][aI]);
@@ -2051,24 +1854,15 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	sigmaOverlay_p->SetBottomMargin(0.08);
 	sigmaOverlay_p->SetLeftMargin(0.08);
 
-	TCanvas* sigmaOverMeanOverlay_p = new TCanvas("sigmaOverMeanOverlay_p", "", 450., 450.);
-	sigmaOverMeanOverlay_p->SetTopMargin(0.01);
-	sigmaOverMeanOverlay_p->SetRightMargin(0.01);
-	sigmaOverMeanOverlay_p->SetBottomMargin(0.08);
-	sigmaOverMeanOverlay_p->SetLeftMargin(0.08);
-
 	Double_t maxMean = -1;
 	Double_t minMean = 100000000;
 
 	Double_t maxSigma = -1;
 	Double_t minSigma = 100000000;
 
-	Double_t maxSigmaOverMean = -1;
-	Double_t minSigmaOverMean = 100000000;
-
-	//std::cout << "LINE: " << __LINE__ << std::endl;
-
 	for(Int_t sI = 0; sI < nSubType; ++sI){	  
+	  if(!doType[sI]) continue;
+
 	  Int_t x,y;
 	  getXYBins(nL1ResPtBins, &x, &y);
 
@@ -2078,11 +1872,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  for(Int_t rI = 0; rI < nL1ResPtBins; ++rI){
 	    jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetBinContent(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetMean());
 	    jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetBinContent(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetStdDev());
-	    jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetBinContent(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetStdDev()/jetL1PtOverOffline_h[jI][cI][sI][rI]->GetMean());
 
 	    jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetBinError(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetMeanError());
 	    jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetBinError(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetStdDevError());
-	    jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetBinError(rI+1, jetL1PtOverOffline_h[jI][cI][sI][rI]->GetStdDevError()/jetL1PtOverOffline_h[jI][cI][sI][rI]->GetMean());
 	    
 	    canv_Res_p->cd();
 	    canv_Res_p->cd(rI+1);
@@ -2095,9 +1887,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    delete jetL1PtOverOffline_h[jI][cI][sI][rI];
 	  }
       
-	  saveName = "jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_Points_" + extraTag + "_" + dateStr + ".pdf";
-	  l1MeanSigmaBins.push_back(saveName);
-	  quietSaveAs(canv_Res_p, "pdfDir/" + dateStr + "/" + saveName);
+	  canv_Res_p->SaveAs(("pdfDir/" + dateStr + "/jetL1PtOverOffline_" + centStr + "_" + subType[sI] + "_" + jetNames.at(jI) + "_Points_" + extraTag + "_" + dateStr + ".pdf").c_str());
 	  delete canv_Res_p;
 	  
 	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->Write("", TObject::kOverwrite);
@@ -2108,11 +1898,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->Write("", TObject::kOverwrite);
 	  if(jetL1PtOverOffline_Sigma_h[jI][cI][sI]->GetMaximum() > maxSigma) maxSigma = jetL1PtOverOffline_Sigma_h[jI][cI][sI]->GetMaximum();
 	  if(jetL1PtOverOffline_Sigma_h[jI][cI][sI]->GetMinimum() < minSigma) minSigma = jetL1PtOverOffline_Sigma_h[jI][cI][sI]->GetMinimum();
-
-
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->Write("", TObject::kOverwrite);
-	  if(jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->GetMaximum() > maxSigmaOverMean) maxSigmaOverMean = jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->GetMaximum();
-	  if(jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->GetMinimum() < minSigmaOverMean) minSigmaOverMean = jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->GetMinimum();
 	}
 
 	double interval = maxMean - minMean;
@@ -2125,19 +1910,16 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	minSigma -= interval/10.;
 	if(minSigma < 0) minSigma = 0;
 
-	interval = maxSigmaOverMean - minSigmaOverMean;
-	maxSigmaOverMean += interval/10.;
-	minSigmaOverMean -= interval/10.;
-	if(minSigmaOverMean < 0) minSigmaOverMean = 0;
-
 	bool isDrawn = false;
 	
 	for(Int_t sI = 0; sI < nSubType; ++sI){	  
+	  if(!doType[sI]) continue;
+
 	  meanOverlay_p->cd();
-	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMarkerStyle(styles[sI]);
 	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMarkerSize(1.2);
-	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetLineColor(vg.getColor(sI%nSetColors));
+	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMarkerColor(colors[sI]);
+	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetLineColor(colors[sI]);
 	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMaximum(maxMean);
 	  jetL1PtOverOffline_Mean_h[jI][cI][sI]->SetMinimum(minMean);
 
@@ -2145,55 +1927,35 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	  else jetL1PtOverOffline_Mean_h[jI][cI][sI]->DrawCopy("HIST E1 P SAME");
 	  
 	  sigmaOverlay_p->cd();
-	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMarkerStyle(styles[sI]);
 	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMarkerSize(1.2);
-	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetLineColor(vg.getColor(sI%nSetColors));
+	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMarkerColor(colors[sI]);
+	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetLineColor(colors[sI]);
 	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMaximum(maxSigma);
 	  jetL1PtOverOffline_Sigma_h[jI][cI][sI]->SetMinimum(minSigma);
 
 	  if(!isDrawn) jetL1PtOverOffline_Sigma_h[jI][cI][sI]->DrawCopy("HIST E1 P");
 	  else jetL1PtOverOffline_Sigma_h[jI][cI][sI]->DrawCopy("HIST E1 P SAME");
 
-	  sigmaOverMeanOverlay_p->cd();
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetMarkerSize(1.2);
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetLineColor(vg.getColor(sI%nSetColors));
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetMaximum(maxSigmaOverMean);
-	  jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->SetMinimum(minSigmaOverMean);
-
-	  if(!isDrawn) jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->DrawCopy("HIST E1 P");
-	  else jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI]->DrawCopy("HIST E1 P SAME");
-
 	  isDrawn = true;
 
 	  delete jetL1PtOverOffline_Mean_h[jI][cI][sI];
 	  delete jetL1PtOverOffline_Sigma_h[jI][cI][sI];
-	  delete jetL1PtOverOffline_SigmaOverMean_h[jI][cI][sI];
 	}
 
-	l1MeanSigma.push_back({});
-
-	saveName = "jetL1PtOverOffline_" + centStr + "_" + jetNames.at(jI) + "_Mean_" + extraTag + "_" + dateStr + ".pdf";
-	l1MeanSigma.at(l1MeanSigma.size()-1).push_back(saveName);
-	quietSaveAs(meanOverlay_p, "pdfDir/" + dateStr + "/" + saveName);
+	meanOverlay_p->SaveAs(("pdfDir/" + dateStr + "/jetL1PtOverOffline_" + centStr + "_" + jetNames.at(jI) + "_Mean_" + extraTag + "_" + dateStr + ".pdf").c_str());
 	delete meanOverlay_p;
 
-	saveName = "jetL1PtOverOffline_" + centStr + "_" + jetNames.at(jI) + "_Sigma_" + extraTag + "_" + dateStr + ".pdf";
-	l1MeanSigma.at(l1MeanSigma.size()-1).push_back(saveName);
-	quietSaveAs(sigmaOverlay_p, "pdfDir/" + dateStr + "/" + saveName);
+	sigmaOverlay_p->SaveAs(("pdfDir/" + dateStr + "/jetL1PtOverOffline_" + centStr + "_" + jetNames.at(jI) + "_Sigma_" + extraTag + "_" + dateStr + ".pdf").c_str());
 	delete sigmaOverlay_p;
 
-	saveName = "jetL1PtOverOffline_" + centStr + "_" + jetNames.at(jI) + "_SigmaOverMean_" + extraTag + "_" + dateStr + ".pdf";
-	l1MeanSigma.at(l1MeanSigma.size()-1).push_back(saveName);
-	quietSaveAs(sigmaOverMeanOverlay_p, "pdfDir/" + dateStr + "/" + saveName);
-	delete sigmaOverMeanOverlay_p;
+
       }
     }
 
-    //std::cout << "LINE: " << __LINE__ << std::endl; 
-      
+  
+
+  
     //    std::cout << "How many hist: " << num.size() << std::endl;
     for(unsigned int i = 0; i < num.size(); ++i){
       TCanvas* canv_p = new TCanvas("canv_p", "", 450, 450);
@@ -2203,8 +1965,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       canv_p->SetBottomMargin(0.12);
      
       std::vector<TH1*> temp = num.at(i);
-      std::vector<TH1*> tempFitMid = fitMid.at(i);
-      std::vector<TH1*> tempFitWidth = fitWidth.at(i);
       std::vector<int> type = subTypePos.at(i);
       //      std::cout << " Sub hist: " << temp.size() << std::endl;
 
@@ -2216,14 +1976,10 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	bins[bIX] = temp.at(0)->GetBinLowEdge(bIX+1);
       }
 
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
       std::string tempX = temp.at(0)->GetXaxis()->GetTitle();
       TH1F* tempHist_p = new TH1F("tempHist_h", (";" + tempX + ";Efficiency").c_str(), nBins, bins);
       tempHist_p->SetMinimum(0.0);
       tempHist_p->SetMaximum(1.2);     
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
       
       canv_p->cd();
       
@@ -2232,103 +1988,31 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
       const Int_t nAPt = temp.size();
       TGraphAsymmErrors* aPt_p[nAPt];
-      TF1* fits_p[nAPt];
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
-      std::string centStr = temp.at(0)->GetName();
-      centStr.replace(0, centStr.find("Rho"), "");
-      centStr.replace(centStr.find("_"), centStr.size(), "");
-      
-      Int_t rhoBinPos = -1;
-      for(Int_t rI = 0; rI < nRhoBins; ++rI){
-	std::string centStr2 = "Rho" + std::to_string(rhoBinsLow[rI]) + "to" + std::to_string(rhoBinsHi[rI]);
-	
-	if(isStrSame(centStr, centStr2)){
-	  rhoBinPos = rI;
-	  break;
-	}
-      }
-      
-      Double_t rhoCent = (rhoBinsHi[rhoBinPos] + rhoBinsLow[rhoBinPos])/2.;
-      
-      Int_t binPos = -1;
-      for(Int_t bIX = 0; bIX < tempFitMid.at(0)->GetNbinsX(); ++bIX){
-	if(tempFitMid.at(0)->GetBinLowEdge(bIX+1) < rhoCent && tempFitMid.at(0)->GetBinLowEdge(bIX+2) > rhoCent){
-	  binPos = bIX+1;
-	}
-      }
-
-      if(binPos == -1) std::cout <<"WARNING: binpos == -1 at line " << __LINE__ << std::endl;
-  
-
+    
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
-	aPt_p[sI] = new TGraphAsymmErrors();
-	fits_p[sI] = new TF1(("fit" + std::to_string(sI)).c_str(), "0.5*(TMath::TanH([0]*(x - [1])) + 1)", temp.at(0)->GetBinLowEdge(0), temp.at(0)->GetBinLowEdge(temp.at(0)->GetNbinsX()));
-	//	std::cout << " " << sI << "/" << temp.size() << ", Latest: " << temp.at(sI)->GetName() << std::endl;
 	//	temp.at(sI)->Print("ALL");
+	//	denom.at(i)->Print("ALL");
 
+	aPt_p[sI] = new TGraphAsymmErrors();
+	//	if(!doType[sI]) continue;
 	aPt_p[sI]->BayesDivide(temp.at(sI), denom.at(i));
-	aPt_p[sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetLineColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	aPt_p[sI]->SetMarkerColor(colors[type.at(sI)]);
+	aPt_p[sI]->SetLineColor(colors[type.at(sI)]);
+	aPt_p[sI]->SetMarkerStyle(styles[type.at(sI)]);
 	aPt_p[sI]->SetMarkerSize(1.2);
 
 	aPt_p[sI]->Draw("P");	
-
-	Double_t x = 20;
-	Double_t y = -1;
-	for(Int_t pI = 0; pI < aPt_p[sI]->GetN(); ++pI){
-	  aPt_p[sI]->GetPoint(pI, x, y);
-	  if(y > .5) break;
-	}
-	
-	fits_p[sI]->SetParameter(0, .1);
-	fits_p[sI]->SetParameter(1, x);
-
-	aPt_p[sI]->Fit(fits_p[sI], "Q N M", "", temp.at(0)->GetBinLowEdge(0), temp.at(0)->GetBinLowEdge(temp.at(0)->GetNbinsX()));
-	
-	TF1* tempFit = new TF1("tempFit", "0.5*(TMath::TanH([0]*(x - [1])) + 1)", temp.at(0)->GetBinLowEdge(0), temp.at(0)->GetBinLowEdge(temp.at(0)->GetNbinsX()));
-	tempFit->SetMarkerColor(vg.getColor(sI%nSetColors));
-	tempFit->SetMarkerStyle(20);
-	tempFit->SetMarkerSize(1.0);
-	tempFit->SetLineWidth(1.0);
-	tempFit->SetLineStyle(1);
-	tempFit->SetLineColor(vg.getColor(sI%nSetColors));
-
-	tempFit->SetParameter(0, fits_p[sI]->GetParameter(0));
-	tempFit->SetParameter(1, fits_p[sI]->GetParameter(1));
-
-	tempFit->DrawCopy("SAME");
-	
-	//Fill midpoint and width grams
-
-	tempFitMid.at(sI)->SetBinContent(binPos, fits_p[sI]->GetParameter(1));
-	tempFitMid.at(sI)->SetBinError(binPos, fits_p[sI]->GetParError(1));
-
-	tempFitWidth.at(sI)->SetBinContent(binPos, fits_p[sI]->GetParameter(0));
-	tempFitWidth.at(sI)->SetBinError(binPos, fits_p[sI]->GetParError(0));
-
-	delete tempFit;
       }
 
-      //      std::cout << "Denom (After): " << denom.at(i)->GetName() << std::endl;
-      //      denom.at(i)->Print("ALL");
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-    
       gStyle->SetOptStat(0);
 
       dummyLeg_p->Draw("SAME");
       line_p->DrawLine(bins[0], 1., bins[nBins], 1.);
     
       std::string histName = temp.at(0)->GetName();
-      std::string absEtaStr = histName.substr(histName.find("AbsEta")+6, histName.size());
       histName.replace(histName.find("leadingJetPt_"), std::string("leadingJetPt_").size(), "");
       histName.replace(histName.find("EventTree_"), std::string("EventTree_").size(), "");
       globalAlgoString = "";
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
 
       std::string thresh = histName.substr(histName.find("L1Pt")+4, histName.size());
       thresh.replace(thresh.find("_"), thresh.size(), "");
@@ -2336,220 +2020,26 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       thresh = "L1 p_{T} > " + thresh;
       label_p->DrawLatex(0.15, 0.94, thresh.c_str());
       label_p->DrawLatex(0.35, 0.94, rhoStr.at(i).c_str());
-      if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#Delta R Matched");
-      else label_p->DrawLatex(0.65, 0.94, "No #Delta R Match");
+      if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#DeltaR Matched");
+      else label_p->DrawLatex(0.65, 0.94, "No #DeltaR Match");
 
-      //std::cout << "LINE: " << __LINE__ << std::endl;
+      std::string absEtaStr = histName.substr(histName.find("AbsEta"), histName.size());
+      absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
+      label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
 
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("to") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
 
-	if(absEtaStr.find("All") != std::string::npos) absEtaStr = "|#eta| < 5.";
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());	
-      }
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-      saveName = "turnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+      std::string saveName = "turnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
       algoCompInRhoBins.at(rhoPos.at(i)).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
+      
+      canv_p->SaveAs(("pdfDir/" + dateStr + "/" + saveName).c_str());
       delete canv_p;
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
 
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
 	delete aPt_p[sI];
-	delete fits_p[sI];
       }
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
 
       delete tempHist_p;
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
     }
-  
-    std::vector<std::string> fitHistIsDone;
-    
-    for(unsigned int i = 0; i < fitMid.size(); ++i){
-      std::string name = fitMid.at(i).at(0)->GetName();
-      bool isDone = false;
-      for(unsigned int j = 0; j < fitHistIsDone.size(); ++j){
-	if(isStrSame(name, fitHistIsDone.at(j))){
-	  isDone = true; 
-	  break;
-	}
-      }
-
-      if(isDone) continue;
-      fitHistIsDone.push_back(name);
-
-      TCanvas* canv_p = new TCanvas("canv_p", "", 450, 450);
-      canv_p->SetTopMargin(0.01);
-      canv_p->SetRightMargin(0.01);
-      canv_p->SetLeftMargin(0.12);
-      canv_p->SetBottomMargin(0.12);
-
-      std::vector<TH1*> tempFitMid = fitMid.at(i);
-      std::vector<TH1*> tempFitWidth = fitWidth.at(i);
-      std::vector<int> type = subTypePos.at(i);
-
-      const Int_t nBins = tempFitMid.at(0)->GetNbinsX();
-      Double_t bins[nBins+1];
-      
-      for(Int_t bIX = 0; bIX < nBins+1; ++bIX){
-	bins[bIX] = tempFitMid.at(0)->GetBinLowEdge(bIX+1);
-      } 
-      bins[0] = 0.8;
-      
-      Double_t fitMidMax = -1;
-      Double_t fitMidMin = 10000;
-      Double_t fitWidthMax = -1;
-      Double_t fitWidthMin = 10000;
-      
-      for(Int_t sI = 0; sI < tempFitMid.size(); ++sI){
-	if(tempFitMid.at(sI)->GetMaximum() > fitMidMax) fitMidMax = tempFitMid.at(sI)->GetMaximum();
-	if(tempFitMid.at(sI)->GetMinimum() < fitMidMin) fitMidMin = tempFitMid.at(sI)->GetMinimum();
-
-	if(tempFitWidth.at(sI)->GetMaximum() > fitWidthMax) fitWidthMax = tempFitWidth.at(sI)->GetMaximum();
-	if(tempFitWidth.at(sI)->GetMinimum() < fitWidthMin) fitWidthMin = tempFitWidth.at(sI)->GetMinimum();
-      }
-
-      double midInterval = fitMidMax - fitMidMin;
-      double widthInterval = fitWidthMax - fitWidthMin;
-      
-      fitMidMax += midInterval/10.;
-      fitMidMin -= midInterval/10.;
-      if(fitMidMin < 0) fitMidMin = 0;
-      
-      fitWidthMax += widthInterval/10.;
-      fitWidthMin -= widthInterval/10.;
-      if(fitWidthMin < 0) fitWidthMin = 0;
-
-      std::string histName = tempFitMid.at(0)->GetName();
-
-      if(histName.find("Calo") != std::string::npos){
-	fitMidMax = 80;
-	fitMidMin = 0;
-      }
-      else if(histName.find("Gen") != std::string::npos){
-	fitMidMax = 120;
-	fitMidMin = 0;
-      }
-      else{
-	fitMidMax = 120;
-	fitMidMin = 0;
-      }
-
-      if(fitWidthMax > .2) fitWidthMax = .25;
-      fitWidthMin = 0.0;
-            
-      TH1F* tempHist_p = new TH1F("tempHist_h", ";Rho;Fit midpoint (we want flat)", nBins, bins);
-      //      tempHist_p->SetMinimum(fitMidMin);
-      //      tempHist_p->SetMaximum(fitMidMax);
-      tempHist_p->SetMinimum(fitMidMin);
-      tempHist_p->SetMaximum(fitMidMax);
-
-      canv_p->cd();
-      
-      centerTitles(tempHist_p);
-      tempHist_p->DrawCopy();
-
-      for(unsigned int sI = 0; sI < tempFitMid.size(); ++sI){
-	tempFitMid.at(sI)->SetMarkerColor(vg.getColor(sI%nSetColors));
-	tempFitMid.at(sI)->SetMarkerStyle(setStyles[sI%nSetStyles]);
-	tempFitMid.at(sI)->SetMarkerSize(1.0);
-	tempFitMid.at(sI)->SetLineColor(vg.getColor(sI%nSetColors));
-
-	tempFitMid.at(sI)->DrawCopy("HIST E1 P SAME");
-      }
-
-      gPad->SetLogx();
-
-      std::string absEtaStr = histName.substr(histName.find("AbsEta")+6, histName.size());
-      histName.replace(histName.find("leadingJetPt_"), std::string("leadingJetPt_").size(), "");
-      histName.replace(histName.find("EventTree_"), std::string("EventTree_").size(), "");
-      globalAlgoString = "";
-
-      std::string thresh = histName.substr(histName.find("L1Pt")+4, histName.size());
-      thresh.replace(thresh.find("_"), thresh.size(), "");
-      thresh.replace(thresh.find("p"), 1, ".");
-      thresh = "L1 p_{T} > " + thresh;
-
-      label_p->DrawLatex(0.15, 0.94, thresh.c_str());
-      if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#Delta R Matched");
-      else label_p->DrawLatex(0.65, 0.94, "No #Delta R Match");
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("to") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
-
-	if(absEtaStr.find("All") != std::string::npos) absEtaStr = "|#eta| < 5.";
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());	
-      }
-
-      dummyLeg3_p->Draw("SAME");
-      
-      saveName = "fitMid_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
-      turnOnFitParamsVRho.push_back({});
-      turnOnFitParamsVRho.at(turnOnFitParamsVRho.size()-1).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
-      delete canv_p;
-
-      canv_p = new TCanvas("canv_p", "", 450, 450);
-      canv_p->SetTopMargin(0.01);
-      canv_p->SetRightMargin(0.01);
-      canv_p->SetLeftMargin(0.12);
-      canv_p->SetBottomMargin(0.12);
-
-      tempHist_p->SetMinimum(fitWidthMin);
-      tempHist_p->SetMaximum(fitWidthMax);
-
-      tempHist_p->GetYaxis()->SetTitle("Fit width^{-1} (Higher == better)");
-
-      canv_p->cd();
-      
-      tempHist_p->DrawCopy();
-    
-      for(unsigned int sI = 0; sI < tempFitWidth.size(); ++sI){
-	tempFitWidth.at(sI)->SetMarkerColor(vg.getColor(sI%nSetColors));
-	tempFitWidth.at(sI)->SetMarkerStyle(setStyles[sI%nSetStyles]);
-	tempFitWidth.at(sI)->SetMarkerSize(1.0);
-	tempFitWidth.at(sI)->SetLineColor(vg.getColor(sI%nSetColors));
-
-	tempFitWidth.at(sI)->DrawCopy("HIST E1 P SAME");
-      }
-
-      gPad->SetLogx();
-      
-      label_p->DrawLatex(0.15, 0.94, thresh.c_str());
-      if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#Delta R Matched");
-      else label_p->DrawLatex(0.65, 0.94, "No #Delta R Match");
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("to") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
-
-	if(absEtaStr.find("All") != std::string::npos) absEtaStr = "|#eta| < 5.";
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());	
-      }
-
-      dummyLeg3_p->Draw("SAME");
-
-      histName = tempFitWidth.at(0)->GetName();
-      saveName = "fitWidth_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
-      turnOnFitParamsVRho.at(turnOnFitParamsVRho.size()-1).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
-      delete canv_p;
-    }
-
 
     for(unsigned int i = 0; i < num.size(); ++i){
       TCanvas* canv_p = new TCanvas("canv_p", "", 450, 450);
@@ -2575,9 +2065,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
             
       canv_p->cd();
 
-
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
       const Int_t nAPt = temp.size();
       TGraphAsymmErrors* aPt_p[nAPt];
 
@@ -2586,6 +2073,7 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
 	aPt_p[sI] = new TGraphAsymmErrors();
+	//	if(!doType[sI]) continue;
 
 	TH1F* tempClone = (TH1F*)temp.at(sI)->Clone("tempClone");
 	for(Int_t bI = 0; bI < tempClone->GetNbinsX(); ++bI){
@@ -2596,9 +2084,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	}
 
 	aPt_p[sI]->BayesDivide(tempClone, denom.at(i));
-	aPt_p[sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetLineColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	aPt_p[sI]->SetMarkerColor(colors[type.at(sI)]);
+	aPt_p[sI]->SetLineColor(colors[type.at(sI)]);
+	aPt_p[sI]->SetMarkerStyle(styles[type.at(sI)]);
 	aPt_p[sI]->SetMarkerSize(1.2);
 
 	Double_t xVal, yVal;
@@ -2629,7 +2117,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       line_p->DrawLine(bins[0], 1., bins[nBins], 1.);
       gPad->SetLogy();
       std::string histName = temp.at(0)->GetName();
-      std::string absEtaStr = histName.substr(histName.find("AbsEta")+6, histName.size());
       histName.replace(histName.find("leadingJetPt_"), std::string("leadingJetPt_").size(), "");
       histName.replace(histName.find("EventTree_"), std::string("EventTree_").size(), "");
       globalAlgoString = "";
@@ -2643,16 +2130,14 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#DeltaR Matched");
       else label_p->DrawLatex(0.65, 0.94, "No #DeltaR Match");
 
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("to") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
-      }
+      std::string absEtaStr = histName.substr(histName.find("AbsEta"), histName.size());
+      absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
+      label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
 
-      saveName = "invTurnOn_" + histName +  globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+      std::string saveName = "invTurnOn_" + histName +  globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
       algoCompInRhoBinsInv.at(rhoPos.at(i)).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
+
+      canv_p->SaveAs(("pdfDir/" + dateStr + "/" + saveName).c_str());
       delete canv_p;
 
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
@@ -2699,9 +2184,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	std::cout << " " << temp.at(sI)->GetName() << std::endl;
 	aPt_p[sI] = new TGraphAsymmErrors();
 	aPt_p[sI]->BayesDivide(temp.at(sI), denom2.at(i));
-	aPt_p[sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetLineColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	aPt_p[sI]->SetMarkerColor(colors[sI]);
+	aPt_p[sI]->SetLineColor(colors[sI]);
+	aPt_p[sI]->SetMarkerStyle(styles[sI%nL1Thresh]);
 	aPt_p[sI]->SetMarkerSize(1.2);
 
 	aPt_p[sI]->Draw("P");	
@@ -2713,7 +2198,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       line_p->DrawLine(bins[0], 1., bins[nBins], 1.);
     
       std::string histName = temp.at(0)->GetName();
-      std::string absEtaStr = histName.substr(histName.find("AbsEta")+6, histName.size());
       histName.replace(histName.find("leadingJetPt_"), std::string("leadingJetPt_").size(), "");
       histName.replace(histName.find("EventTree_"), std::string("EventTree_").size(), "");
       globalAlgoString = "_Algo" + algo.at(i);
@@ -2723,18 +2207,14 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#DeltaR Matched");
       else label_p->DrawLatex(0.65, 0.94, "No #DeltaR Match");
 
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("to") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
-	
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
-      }
+      std::string absEtaStr = histName.substr(histName.find("AbsEta"), histName.size());
+      absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
+      label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
 
       dummyLeg4_p->Draw("SAME");
-      saveName = "turnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+      std::string saveName = "turnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
       threshCompInRhoBins.at(rhoPos2.at(i)).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
+      canv_p->SaveAs(("pdfDir/" + dateStr + "/" + saveName).c_str());
       delete canv_p;
 
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
@@ -2785,9 +2265,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	}
 
 	aPt_p[sI]->BayesDivide(tempClone, denom2.at(i));
-	aPt_p[sI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetLineColor(vg.getColor(sI%nSetColors));
-	aPt_p[sI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	aPt_p[sI]->SetMarkerColor(colors[sI]);
+	aPt_p[sI]->SetLineColor(colors[sI]);
+	aPt_p[sI]->SetMarkerStyle(styles[sI%nL1Thresh]);
 	aPt_p[sI]->SetMarkerSize(1.2);
 
 	Double_t xVal, yVal;
@@ -2814,13 +2294,10 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
       gStyle->SetOptStat(0);
 
-      //std::cout << "LINE: " << __LINE__ << std::endl;
-
       //      dummyLeg_p->Draw("SAME");
       line_p->DrawLine(bins[0], 1., bins[nBins], 1.);
       gPad->SetLogy();
       std::string histName = temp.at(0)->GetName();
-      std::string absEtaStr = histName.substr(histName.find("AbsEta")+1, histName.size());
       histName.replace(histName.find("leadingJetPt_"), std::string("leadingJetPt_").size(), "");
       histName.replace(histName.find("EventTree_"), std::string("EventTree_").size(), "");
       globalAlgoString = "_Algo" + algo.at(i);
@@ -2830,12 +2307,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       if(histName.find("DR_") != std::string::npos) label_p->DrawLatex(0.65, 0.94, "#DeltaR Matched");
       else label_p->DrawLatex(0.65, 0.94, "No #DeltaR Match");
 
-      if(absEtaStr.size() > 0){
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
-	while(absEtaStr.find("p") != std::string::npos){absEtaStr.replace(absEtaStr.find("p"), 1, ".");}
-	if(absEtaStr.find("_") != std::string::npos) absEtaStr.replace(absEtaStr.find("to"), 2, "<|#eta|<");
-	label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
-      }
+      std::string absEtaStr = histName.substr(histName.find("AbsEta"), histName.size());
+      absEtaStr.replace(absEtaStr.find("_"), absEtaStr.size(), "");
+      label_p->DrawLatex(0.15, 0.88, absEtaStr.c_str());
 
       /*
       std::string thresh = histName.substr(histName.find("L1Pt")+4, histName.size());
@@ -2845,9 +2319,11 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       label_p->DrawLatex(0.5, 0.94, thresh.c_str());
       */
 
-      saveName = "invTurnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+      std::string saveName = "invTurnOn_" + histName + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+
+
       threshCompInRhoBinsInv.at(rhoPos2.at(i)).push_back(saveName);
-      quietSaveAs(canv_p, "pdfDir/" + dateStr + "/" + saveName);
+      canv_p->SaveAs(("pdfDir/" + dateStr + "/" + saveName).c_str());
       delete canv_p;
 
       for(unsigned int sI = 0; sI < temp.size(); ++sI){
@@ -2857,8 +2333,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       delete tempHist_p;
     }
   }
-
-  //std::cout << "LINE: " << __LINE__ << std::endl;
 
   // END TRIG TURN ON
 
@@ -2876,11 +2350,18 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   for(Int_t cI = 0; cI < nRhoBins+1; ++cI){
     std::string centStr = "AllRho";
     if(cI != nRhoBins) centStr = "Rho" + std::to_string(rhoBinsLow[cI]) + "to" + std::to_string(rhoBinsHi[cI]);
-    const std::string centStr2 = std::to_string(rhoBinsLow[cI]) + " < #rho <" + std::to_string(rhoBinsHi[cI]);
-	
 
     for(Int_t lI = 0; lI < nL1Thresh; ++lI){
-      if(triggerEta_L1Pt_h[cI][0][lI]->GetEntries() == 0) continue;
+      int firstPos = -1;
+      for(Int_t sI = 0; sI < nSubType; ++sI){
+	if(doType[sI]){
+	  firstPos = sI;
+	  break;
+	}
+      }
+
+
+      if(triggerEta_L1Pt_h[cI][firstPos][lI]->GetEntries() == 0) continue;
 
       TCanvas* canv_p = new TCanvas("canv_p", "", 450, 450);
       canv_p->SetTopMargin(0.01);
@@ -2888,86 +2369,40 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       canv_p->SetLeftMargin(0.08);
       canv_p->SetBottomMargin(0.08);
 
-      TCanvas* canvLog_p = new TCanvas("canvLog_p", "", 450, 450);
-      canvLog_p->SetTopMargin(0.01);
-      canvLog_p->SetRightMargin(0.01);
-      canvLog_p->SetLeftMargin(0.08);
-      canvLog_p->SetBottomMargin(0.08);
-
-
-      Double_t min = 100000;
+      Double_t min = 0;
       Double_t max = -1;
       for(Int_t sI = 0; sI < nSubType; ++sI){
 	centerTitles(triggerEta_L1Pt_h[cI][sI][lI]);
 
-	triggerEta_L1Pt_h[cI][sI][lI]->SetMarkerColor(vg.getColor(sI%nSetColors));
-	triggerEta_L1Pt_h[cI][sI][lI]->SetLineColor(vg.getColor(sI%nSetColors));
-	triggerEta_L1Pt_h[cI][sI][lI]->SetMarkerStyle(setStyles[sI%nSetStyles]);
+	triggerEta_L1Pt_h[cI][sI][lI]->SetMarkerColor(colors[sI]);
+	triggerEta_L1Pt_h[cI][sI][lI]->SetLineColor(colors[sI]);
+	triggerEta_L1Pt_h[cI][sI][lI]->SetMarkerStyle(styles[sI]);
 	triggerEta_L1Pt_h[cI][sI][lI]->SetMarkerSize(1.2);
 	
 	if(triggerEta_L1Pt_h[cI][sI][lI]->GetMaximum() > max) max = triggerEta_L1Pt_h[cI][sI][lI]->GetMaximum();
-	double tempMin = getMinGTZero(triggerEta_L1Pt_h[cI][sI][lI]);
-	if(tempMin < min) min = tempMin;
       }
-
+      
       max *= 1.3;
-      min /= 2;
       
-      std::string xTitle = triggerEta_L1Pt_h[cI][0][lI]->GetXaxis()->GetTitle();
-      std::string yTitle = triggerEta_L1Pt_h[cI][0][lI]->GetYaxis()->GetTitle();
-      double xMinVal = triggerEta_L1Pt_h[cI][0][lI]->GetBinLowEdge(1);
-      double xMaxVal = triggerEta_L1Pt_h[cI][0][lI]->GetBinLowEdge(triggerEta_L1Pt_h[cI][0][lI]->GetNbinsX()+1);
-      
-
-      TH1F* tempHist_p = new TH1F("tempHist_h", (";" + xTitle + ";" + yTitle).c_str(), 10, xMinVal, xMaxVal);
-      centerTitles(tempHist_p);
-
-      tempHist_p->SetMinimum(min);
-      tempHist_p->SetMaximum(max);
-      canv_p->cd();
-      tempHist_p->DrawCopy("HIST");
-      canvLog_p->cd();
-      tempHist_p->DrawCopy("HIST");
-
       for(Int_t sI = 0; sI < nSubType; ++sI){
-	canv_p->cd();
-	triggerEta_L1Pt_h[cI][sI][lI]->DrawCopy("HIST E1 P SAME");
-	canvLog_p->cd();
-	triggerEta_L1Pt_h[cI][sI][lI]->DrawCopy("HIST E1 P SAME");
+	if(!doType[sI]) continue;
+
+	triggerEta_L1Pt_h[cI][sI][lI]->SetMaximum(max);
+	triggerEta_L1Pt_h[cI][sI][lI]->SetMinimum(min);
+	
+	if(sI == firstPos) triggerEta_L1Pt_h[cI][sI][lI]->DrawCopy("HIST E1 P");
+	else triggerEta_L1Pt_h[cI][sI][lI]->DrawCopy("HIST E1 P SAME");
       }
       
-      canv_p->cd();
       dummyLeg_p->Draw("SAME");
 
-      label_p->DrawLatex(0.15, 0.95, centStr2.c_str());
-
-      canvLog_p->cd();
-      dummyLeg3_p->Draw("SAME");
-
-      label_p->DrawLatex(0.15, 0.95, centStr2.c_str());
-
-
+      
       const std::string partialSaveName = "triggerEta_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_" + centStr + "_" + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
-
-      const std::string partialSaveNameLOG = "triggerEta_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_" + centStr + "_" + globalAlgoString + "_" + extraTag + "_LOG_" + dateStr + ".pdf";
-
-      saveName = "pdfDir/" + dateStr + "/" + partialSaveName;
-      quietSaveAs(canv_p, saveName);
-
-      saveName = "pdfDir/" + dateStr + "/" + partialSaveNameLOG;
-      canvLog_p->cd();
-      gPad->SetLogy();
-      gPad->Modified();
-      quietSaveAs(canvLog_p, saveName);
-
+      const std::string saveName = "pdfDir/" + dateStr + "/" + partialSaveName;
+      canv_p->SaveAs(saveName.c_str());
       delete canv_p;
-      delete canvLog_p;
-      delete tempHist_p;
     
-      if(cI != nRhoBins){
-	l1TrigCanvName_Rho.at(cI).push_back(partialSaveName);
-	l1TrigCanvName_Rho.at(cI).push_back(partialSaveNameLOG);
-      }
+      if(cI != nRhoBins) l1TrigCanvName_Rho.at(cI).push_back(partialSaveName);
     }
   }
 
@@ -2989,9 +2424,9 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
       for(Int_t jI = 0; jI < nJetTrees; ++jI){
 	centerTitles(jetEta_L1Pt_h[cI][jI][lI]);
-	jetEta_L1Pt_h[cI][jI][lI]->SetMarkerColor(vg.getColor(jI%nSetColors));
-	jetEta_L1Pt_h[cI][jI][lI]->SetLineColor(vg.getColor(jI%nSetColors));
-	jetEta_L1Pt_h[cI][jI][lI]->SetMarkerStyle(setStyles[jI%nSetStyles]);
+	jetEta_L1Pt_h[cI][jI][lI]->SetMarkerColor(colors[jI]);
+	jetEta_L1Pt_h[cI][jI][lI]->SetLineColor(colors[jI]);
+	jetEta_L1Pt_h[cI][jI][lI]->SetMarkerStyle(styles[jI]);
 	jetEta_L1Pt_h[cI][jI][lI]->SetMarkerSize(1.2);
 	
 	if(jetEta_L1Pt_h[cI][jI][lI]->GetMaximum() > max) max = jetEta_L1Pt_h[cI][jI][lI]->GetMaximum();
@@ -3009,17 +2444,13 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
       
       dummyLeg2_p->Draw("SAME");
       
-      saveName = "pdfDir/" + dateStr + "/jetEta_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_" + centStr + "_" + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
-      quietSaveAs(canv_p, saveName);
+      const std::string saveName = "pdfDir/" + dateStr + "/jetEta_L1Pt" + prettyString(l1ThreshPt[lI]/2., 1, true) + "_" + centStr + "_" + globalAlgoString + "_" + extraTag + "_" + dateStr + ".pdf";
+      canv_p->SaveAs(saveName.c_str());
       delete canv_p;
     }
   }
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
-
-  outFile_p->cd();
-
-  for(int sI = 0; sI < nSubType; ++sI){
+  for(unsigned int sI = 0; sI < nSubType; ++sI){
     delete dummys_p[sI];
   }
 
@@ -3040,8 +2471,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   delete etaMiss_CMSSWJet_p;
   delete phiMiss_CMSSWJet_p;
-
-  //std::cout << "LINE: " << __LINE__ << std::endl;
   
   if(doForest){
     for(Int_t jI = 0; jI < nJetTrees; ++jI){
@@ -3053,20 +2482,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 	    for(Int_t lI = 0; lI < nL1Thresh; ++lI){
 	      delete leadingJetPt_L1Pt_h[jI][cI][aI][sI][lI];
 	      delete leadingJetPt_L1Pt_DR_h[jI][cI][aI][sI][lI];
-
-	      if(cI == 0){
-		leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI]->Write("", TObject::kOverwrite);
-		leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI]->Write("", TObject::kOverwrite);
-
-		leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI]->Write("", TObject::kOverwrite);
-		leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI]->Write("", TObject::kOverwrite);
-
-		delete leadingJetPt_L1Pt_FitMid_h[jI][aI][sI][lI];
-		delete leadingJetPt_L1Pt_FitMid_DR_h[jI][aI][sI][lI];
-
-		delete leadingJetPt_L1Pt_FitWidth_h[jI][aI][sI][lI];
-		delete leadingJetPt_L1Pt_FitWidth_DR_h[jI][aI][sI][lI];
-	      }
 	      
 	      if(jI == 0 && aI == 0) delete triggerEta_L1Pt_h[cI][sI][lI];
 	    }
@@ -3078,8 +2493,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
   
   outFile_p->Close();
   delete outFile_p;;
-
-  //std::cout << "LINE: " << __LINE__ << std::endl;
 
   std::string fileNameTex = "pdfDir/" + dateStr + "/l1OfflineSubtract_" + extraTag + "_" + dateStr + ".tex";
   std::ofstream texFile(fileNameTex.c_str());
@@ -3150,8 +2563,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
 
   texFile << std::endl;
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
-
   for(unsigned int aI = 0; aI < algoCompInRhoBins.at(0).size(); ++aI){
     std::string algo = algoCompInRhoBins.at(0).at(aI);
     std::string ptThresh = algo.substr(algo.find("L1Pt")+4, algo.size());
@@ -3178,7 +2589,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     for(unsigned int lI = 0; lI < algoCompInRhoBins.size(); ++lI){
       texFile << "\\includegraphics[width=" << 0.33 << "\\textwidth]{" << algoCompInRhoBins.at(algoCompInRhoBins.size() - 1 - lI).at(aI) << "}" << std::endl;
     }
-
     texFile << "\\end{center}" << std::endl;
     texFile << "\\begin{itemize}" << std::endl;
     texFile << "\\fontsize{8}{8}\\selectfont" << std::endl;
@@ -3190,76 +2600,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     texFile << "\\end{itemize}" << std::endl;
     texFile << "\\end{frame}" << std::endl;
   }
-
-
-  for(unsigned int aI = 0; aI < turnOnFitParamsVRho.size(); ++aI){
-    std::string algo = turnOnFitParamsVRho.at(aI).at(0);
-
-    if(algo.find("AbsEta0p0to3p0") != std::string::npos) continue;
-    else if(algo.find("AbsEta3p0to5p0") != std::string::npos) continue;
-
-    std::string ptThresh = algo.substr(algo.find("L1Pt")+4, algo.size());
-    ptThresh.replace(ptThresh.find("_"), ptThresh.size(), "");
-    ptThresh.replace(ptThresh.find("p"), 1, ".");
-    ptThresh = "$p_{T,L1} > $" + ptThresh;
-
-    std::string drStr = "Not $\\Delta$R Matched";
-    if(algo.find("DR_") != std::string::npos) drStr = "$\\Delta$R Matched";
-
-    std::string offlineJet = "";
-    if(algo.find("Calo") != std::string::npos) offlineJet = "Offline Calo. Jets";
-    else if(algo.find("PF") != std::string::npos) offlineJet = "Offline PF Jets";
-    else if(algo.find("Gen") != std::string::npos) offlineJet = "Offline Gen. Jets";
-
-    std::string absEtaStr = "";
-    if(algo.find("AbsEta0p0to3p0") != std::string::npos) absEtaStr = "0.0 $< |\\eta| <$ 3.0";
-    else if(algo.find("AbsEta3p0to5p0") != std::string::npos) absEtaStr = "3.0 $< |\\eta| <$ 5.0";
-    else absEtaStr = "0.0 $< |\\eta| <$ 5.0";
-
-    texFile << "\\begin{frame}" << std::endl;
-    texFile << "\\frametitle{\\centerline{Algo. comp., " << ptThresh << ", " << offlineJet << "}}" << std::endl;
-    texFile << "\\begin{center}" << std::endl;
-    for(unsigned int lI = 0; lI < turnOnFitParamsVRho.at(aI).size(); ++lI){
-      texFile << "\\includegraphics[width=" << 0.42 << "\\textwidth]{" << turnOnFitParamsVRho.at(aI).at(lI) << "}" << std::endl;
-    }
-
-    texFile << "\\end{center}" << std::endl;
-    texFile << "\\begin{itemize}" << std::endl;
-    texFile << "\\fontsize{8}{8}\\selectfont" << std::endl;
-    texFile << "\\item{" << ptThresh << "}" << std::endl;
-    texFile << "\\item{" << drStr << "}" << std::endl;
-    texFile << "\\item{" << absEtaStr << "}" << std::endl;
-    texFile << "\\item{" << offlineJet << "}" << std::endl;
-    texFile << "\\end{itemize}" << std::endl;
-    texFile << "\\end{frame}" << std::endl;
-  }
-
-  for(unsigned int aI = 0; aI < l1MeanSigma.size(); ++aI){
-    std::string titleStr = l1MeanSigma.at(aI).at(0);
-    titleStr.replace(0, titleStr.find("_")+1, "");
-    while(titleStr.rfind("_") != titleStr.find("_")){
-      titleStr.replace(titleStr.rfind("_"), titleStr.size(), "");
-    }
-    titleStr.replace(titleStr.find("_"), 1, " ");
-
-    texFile << "\\begin{frame}" << std::endl;
-    texFile << "\\frametitle{\\centerline{" + titleStr + "}}" << std::endl;
-    texFile << "\\begin{center}" << std::endl;
-
-    
-    for(unsigned int lI = 0; lI < l1MeanSigma.at(aI).size(); ++lI){
-      texFile << "\\includegraphics[width=" << 0.33 << "\\textwidth]{" << l1MeanSigma.at(aI).at(lI) << "}" << std::endl;
-    }
-
-    texFile << "\\end{center}" << std::endl;
-    texFile << "\\begin{itemize}" << std::endl;
-    texFile << "\\fontsize{8}{8}\\selectfont" << std::endl;
-    texFile << "\\item{Placeholder}" << std::endl;
-    texFile << "\\end{itemize}" << std::endl;
-    texFile << "\\end{frame}" << std::endl;
-  }
- 
-  
 
   std::cout << "Plotting " << l1TrigCanvName_Rho.at(0).size() << std::endl;
   for(unsigned int aI = 0; aI < l1TrigCanvName_Rho.at(0).size(); ++aI){
@@ -3327,8 +2667,6 @@ int l1OfflineSubtract(std::vector<std::string> inFileName, std::vector<std::stri
     texFile << "\\end{frame}" << std::endl;
   }
 
-  //std::cout << "LINE: " << __LINE__ << std::endl;
-
   texFile << "\\end{document}" << std::endl;
 
   texFile.close();
@@ -3354,6 +2692,8 @@ int main(int argc, char* argv[])
   if(argc >= 12) subTypeStr.push_back(argv[11]);
   if(argc >= 13) subTypeStr.push_back(argv[12]);
 
+  //std::cout << __LINE__ << std::endl;
+
   std::cout << "Arguments " << std::endl;
   for(Int_t aI = 0; aI < argc; ++aI){
     std::cout << " " << aI << "/" << argc << ": " << argv[aI] << std::endl;
@@ -3368,13 +2708,19 @@ int main(int argc, char* argv[])
   }
   if(argv1.size() != 0) vect1.push_back(argv1);
 
+  //std::cout << __LINE__ << std::endl;
+
   while(argv2.find(",") != std::string::npos){
     vect2.push_back(argv2.substr(0, argv2.find(",")));
     argv2.replace(0, argv2.find(",")+1,"");
   }
   if(argv2.size() != 0) vect2.push_back(argv2);
 
+  //std::cout << __LINE__ << std::endl;
+  
   if(vect1.size() == 1 && vect2.size() == 0) vect2.push_back("");
+
+  //std::cout << __LINE__ << std::endl;
 
   int retVal = 0;
   retVal += l1OfflineSubtract(vect1, vect2, std::stoi(argv[3]), argv[4], subTypeStr);

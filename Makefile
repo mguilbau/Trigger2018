@@ -12,7 +12,7 @@ MKDIR_BIN = mkdir -p $(PWD)/bin
 MKDIR_PDFDIR = mkdir -p $(PWD)/pdfDir
 MKDIR_OUTPUT = mkdir -p $(PWD)/output
 
-all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe
+all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -37,6 +37,9 @@ bin/l1CaloTowerDist.exe: src/l1CaloTowerDist.C
 
 bin/l1OfflineEvtDisp.exe: src/l1OfflineEvtDisp.C
 	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1OfflineEvtDisp.exe src/l1OfflineEvtDisp.C
+
+bin/l1ToTTree.exe: src/l1ToTTree.C
+	$(CXX) $(CXXFLAGS) $(ROOT) -I $(PWD) -o bin/l1ToTTree.exe src/l1ToTTree.C
 
 clean:
 	rm *~ || true
