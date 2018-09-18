@@ -20,9 +20,13 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
     return 1;
   }
 
+  std::cout << __LINE__ << std::endl;
+
   TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
   TTree* l1CaloTree_p = (TTree*)inFile_p->Get("l1CaloTowerEmuTree/L1CaloTowerTree");
   L1Analysis::L1AnalysisL1CaloTowerDataFormat *towers_ = new L1Analysis::L1AnalysisL1CaloTowerDataFormat();
+
+  std::cout << __LINE__ << std::endl;
 
   l1CaloTree_p->SetBranchStatus("*", 0);
   l1CaloTree_p->SetBranchStatus("L1CaloTower", 1);
@@ -32,16 +36,24 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
   l1CaloTree_p->SetBranchStatus("iem", 1);
   l1CaloTree_p->SetBranchStatus("ihad", 1);
 
-  l1CaloTree_p->SetBranchAddress("L1CaloTower", &towers_);
+  std::cout << __LINE__ << std::endl;
+
+  l1CaloTree_p->SetBranchAddress("L1CaloTower", &(towers_));
 
   l1CaloTree_p->GetEntry(getEntry);
+
+  std::cout << __LINE__ << std::endl;
 
   int minEtaVal = 10000;
   int maxEtaVal = -10000;
   int minPhiVal = 10000;
   int maxPhiVal = -10000;
 
+  std::cout << __LINE__ << std::endl;
+
   std::map<int, std::map<int, int> > phiToEtaToEtMap;
+
+  std::cout << __LINE__ << std::endl;
 
   for(unsigned int i = 0; i < towers_->iet.size(); ++i){
     if(towers_->ieta.at(i) < minEtaVal) minEtaVal = towers_->ieta.at(i);
@@ -59,6 +71,8 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
 
     phiToEtaToEtMap[towers_->iphi.at(i)] = etaToEtMap;
   }
+
+  std::cout << __LINE__ << std::endl;
 
   int minPhi = 1;
   int maxPhi = 72;
@@ -95,10 +109,15 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
   }
   outFile << std::endl;
 
+  std::cout << __LINE__ << std::endl;
+
   for(int pI = minPhi; pI <= maxPhi; ++pI){
     std::string phiStr = std::to_string(pI) + ","; 
     while(phiStr.size() < minStringSize){phiStr = " " + phiStr;}
     outFile << phiStr;
+
+
+    std::cout << __LINE__ << std::endl;
 
     std::map<int, int> etaToEtMap;
     if(phiToEtaToEtMap.count(pI) != 0) etaToEtMap = phiToEtaToEtMap[pI];
@@ -117,6 +136,8 @@ int l1OfflineEvtDisp(const std::string inFileName, const int getEntry, const int
     
     outFile << std::endl;
   }
+
+  std::cout << __LINE__ << std::endl;
 
   inFile_p->Close();
   delete inFile_p;
