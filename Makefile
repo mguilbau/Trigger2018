@@ -12,7 +12,7 @@ MKDIR_BIN = mkdir -p $(PWD)/bin
 MKDIR_PDFDIR = mkdir -p $(PWD)/pdfDir
 MKDIR_OUTPUT = mkdir -p $(PWD)/output
 
-all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/createJetToTowerPos.exe bin/quickHiBin.exe
+all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/hltFiringFraction.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -36,16 +36,14 @@ bin/l1CaloTowerDist.exe: src/l1CaloTowerDist.C
 	$(CXX) $(CXXFLAGS) src/l1CaloTowerDist.C $(ROOT) -I $(PWD) -o bin/l1CaloTowerDist.exe
 
 bin/l1OfflineEvtDisp.exe: src/l1OfflineEvtDisp.C
-	$(CXX) $(CXXFLAGS) src/l1OfflineEvtDisp.C $(ROOT) -I $(PWD) -o bin/l1OfflineEvtDisp.exe 
+	$(CXX) $(CXXFLAGS) src/l1OfflineEvtDisp.C $(ROOT) -I $(PWD) -o bin/l1OfflineEvtDisp.exe
 
 bin/l1ToTTree.exe: src/l1ToTTree.C
-	$(CXX) $(CXXFLAGS) src/l1ToTTree.C $(ROOT) -I $(PWD) -o bin/l1ToTTree.exe 
+	$(CXX) $(CXXFLAGS) src/l1ToTTree.C $(ROOT) -I $(PWD) -o bin/l1ToTTree.exe
 
-bin/createJetToTowerPos.exe: src/createJetToTowerPos.C
-	$(CXX) $(CXXFLAGS) src/createJetToTowerPos.C $(ROOT) -I $(PWD) -o bin/createJetTo
+bin/hltFiringFraction.exe: src/hltFiringFraction.C
+	$(CXX) $(CXXFLAGS) src/hltFiringFraction.C $(ROOT) -I $(PWD) -o bin/hltFiringFraction.exe 
 
-bin/quickHiBin.exe: src/quickHiBin.C
-	$(CXX) $(CXXFLAGS) src/quickHiBin.C $(ROOT) -I $(PWD) -o bin/quickHiBin.exe 
 
 clean:
 	rm *~ || true
