@@ -12,6 +12,7 @@
 #include "TTree.h"
 
 //local dependencies
+#include "include/mntToXRootdFileString.h"
 #include "include/plotUtilities.h"
 
 std::string to_string_with_precision(double a_value, const int n)
@@ -23,7 +24,7 @@ std::string to_string_with_precision(double a_value, const int n)
 
 int quickHiBin(const std::string inFileName, const Int_t nBins, const std::string tagStr = "")
 {
-  TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
+  TFile* inFile_p = TFile::Open(mntToXRootdFileString(inFileName).c_str(), "READ");
   TTree* hiTree_p = (TTree*)inFile_p->Get("hiEvtAnalyzer/HiTree");
   Float_t hiHF_;
 
