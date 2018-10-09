@@ -46,6 +46,8 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
   std::vector<std::string> listOfHLTTrees = returnRootFileContentsList(inFile_p, "TTree", "hlt");
   if(listOfHLTTrees.size() == 0){
     std::cout << "Given inFileName \'" << inFileName << "\' contains no TTree w/ \'hlt\' in name. return 1" << std::endl;
+    inFile_p->Close();
+    delete inFile_p;
     return 1;
   }
   else if(listOfHLTTrees.size() > 1){

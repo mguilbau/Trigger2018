@@ -2,20 +2,17 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <fstream>
 
 //ROOT dependencies
 #include "TFile.h"
 #include "TTree.h"
 #include "TObjArray.h"
-#include "TMath.h"
-#include "TDatime.h"
 
 //Local dependencies
 #include "include/checkMakeDir.h"
 #include "include/returnRootFileContentsList.h"
 
-int hltFiringFraction(const std::string inFileName)
+int listHLT(const std::string inFileName)
 {
   if(!checkFile(inFileName)){
     std::cout << "Warning: Given inFileName \'" << inFileName << "\' is not a valid file. return 1" << std::endl;
@@ -25,10 +22,6 @@ int hltFiringFraction(const std::string inFileName)
     std::cout << "Warning: Given inFileName \'" << inFileName << "\' is not a valid .root file. return 1" << std::endl;
     return 1;
   }
-
-  TDatime* date = new TDatime();
-  const std::string dateStr = std::to_string(date->GetDate());
-  delete date;
 
   TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
 
@@ -58,54 +51,13 @@ int hltFiringFraction(const std::string inFileName)
     finalListOfBranches.push_back(branchName);
   }
 
-  const Int_t nBranches = finalListOfBranches.size();
-  Int_t branchVal_[nBranches];
-  Int_t branchFires_[nBranches];
-  
-  hltTree_p->SetBranchStatus("*", 0);
-
-  for(Int_t bI = 0; bI < nBranches; ++bI){
-    hltTree_p->SetBranchStatus(finalListOfBranches.at(bI).c_str(), 1);
-
-    hltTree_p->SetBranchAddress(finalListOfBranches.at(bI).c_str(), &(branchVal_[bI]));
-
-    branchFires_[bI] = 0;
-  }
-
-  const Int_t nEntries = hltTree_p->GetEntries();
-  const Int_t nDiv = TMath::Max(1, nEntries/20);
-
-  std::cout << "Processing " << nEntries << "..." << std::endl;
-  for(Int_t entry = 0; entry < nEntries; ++entry){
-    if(entry%nDiv == 0) std::cout << " Entry " << entry << "/" << nEntries << std::endl;
-    hltTree_p->GetEntry(entry);
-
-    for(Int_t bI = 0; bI < nBranches; ++bI){
-      if(branchVal_[bI] == 1) ++(branchFires_[bI]);
-    }
-  }
-
   inFile_p->Close();
   delete inFile_p;
 
-  checkMakeDir("output");
-  checkMakeDir("output/" + dateStr);
-
-  std::string outFileName = inFileName.substr(0, inFileName.find(".root"));
-  while(outFileName.find("/") != std::string::npos){outFileName.replace(0, outFileName.find("/")+1, "");}
-  outFileName = "output/" + dateStr + "/" + outFileName + "_FiringFrac_" + dateStr + ".csv";
-  
-  std::ofstream outFile(outFileName.c_str());
-
-  outFile << "TriggerName,Fires (Out of " << nEntries << "),Fraction,Rate at 40kHz (Hz)," << std::endl;
-  for(Int_t bI = 0; bI < nBranches; ++bI){
-    Double_t fraction = branchFires_[bI];
-    fraction /= (Double_t)nEntries;
-
-    outFile << finalListOfBranches.at(bI) << "," << branchFires_[bI] << "," << fraction << "," << fraction*40000. << "," << std::endl;
+  std::cout << "Listing " << finalListOfBranches.size() << " HLT triggers..." << std::endl;
+  for(unsigned int bI = 0; bI < finalListOfBranches.size(); ++bI){
+    std::cout << " " << bI << "/" << finalListOfBranches.size() << ": " << finalListOfBranches.at(bI) << std::endl;
   }
-
-  outFile.close();
 
   return 0;
 }
@@ -113,11 +65,11 @@ int hltFiringFraction(const std::string inFileName)
 int main(int argc, char* argv[])
 {
   if(argc != 2){
-    std::cout << "Usage: ./bin/hltFiringFraction.exe <inFileName>" << std::endl;
+    std::cout << "Usage: ./bin/listHLT.exe <inFileName>" << std::endl;
     return 1;
   }
 
   int retVal = 0;
-  retVal += hltFiringFraction(argv[1]);
+  retVal += listHLT(argv[1]);
   return retVal;
 }
