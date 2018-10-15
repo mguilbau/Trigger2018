@@ -4,12 +4,15 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <algorithm>
 
 //ROOT dependencies
 #include "TFile.h"
 #include "TTree.h"
 #include "TObjArray.h"
 #include "TMath.h"
+#include "TH1F.h"
+#include "TDatime.h"
 
 //Local dependencies
 #include "include/checkMakeDir.h"
@@ -37,6 +40,10 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     return 1;
   }
 
+  TDatime* date = new TDatime();
+  const std::string dateStr = std::to_string(date->GetDate());
+  delete date;
+
   TFile* inFile_p = new TFile(inFileName.c_str(), "READ");
 
   //Pick TTree
@@ -50,6 +57,9 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
   else if(listOfHLTTrees.size() > 1){
     std::cout << "Warning: Given inFileName \'" << inFileName << "\' contains multiple TTree w/ \'hlt\' in name. Picking first, \'" << listOfHLTTrees.at(0) << "\'. Please check file that this is right choice" << std::endl;
   }
+
+ 
+
   TTree* hltTree_p = (TTree*)inFile_p->Get(listOfHLTTrees.at(0).c_str());
 
   //Pick Branches
@@ -65,17 +75,20 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     finalListOfBranches.push_back(branchName);
   }
 
-
   std::vector<std::string> trigNames;
   std::vector<int> trigPrescale;
   std::vector<std::string> trigPD;
   std::vector<std::string> trigSubPD;
+  std::vector<int> trigThreshold;
 
   std::map<std::string, bool> pdMapIsFired;
   std::map<std::string, int> pdMapToFires;
 
   std::map<std::string, bool> subPDMapIsFired;
   std::map<std::string, int> subPDMapToFires;
+
+  std::vector<std::string> uniqueSubPD;
+  std::vector<std::vector<double> > subPDThresholds;
 
   std::ifstream prescaleConfig(prescaleConfigName.c_str());
   std::string tempStr;
@@ -89,6 +102,8 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     std::string pd = tempStr.substr(0, tempStr.find(","));  
     tempStr.replace(0, tempStr.find(",")+1, "");
     std::string subPD = tempStr.substr(0, tempStr.find(","));  
+    tempStr.replace(0, tempStr.find(",")+1, "");
+    int threshold = std::stoi(tempStr.substr(0, tempStr.find(",")));
 
     if(prescale < 0) continue;
 
@@ -109,9 +124,29 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     trigPrescale.push_back(getNearestPrime(prescale));
     trigPD.push_back(pd);
     trigSubPD.push_back(subPD);
+    trigThreshold.push_back(threshold);
 
     if(pdMapToFires.count(pd) == 0) pdMapToFires[pd] = 0;
     if(subPDMapToFires.count(subPD) == 0) subPDMapToFires[subPD] = 0;
+
+    
+    int idPos = -1;
+    bool isUniqueSubPD = true;
+    for(unsigned int pI = 0; pI < uniqueSubPD.size(); ++pI){
+      if(isStrSame(uniqueSubPD.at(pI), subPD)){
+	isUniqueSubPD = false;
+	idPos = pI;
+	break;
+      }
+    }
+
+    if(isUniqueSubPD){
+      uniqueSubPD.push_back(subPD);
+      subPDThresholds.push_back({(Double_t)threshold});
+    }
+    else{
+      subPDThresholds.at(idPos).push_back((Double_t)threshold);
+    }
   }
   prescaleConfig.close();
 
@@ -119,6 +154,42 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
   Int_t trigVal[nTrig];
   Int_t trigFires[nTrig];
   Int_t trigPrescaledFires[nTrig];
+
+
+  std::string outFileName = inFileName;
+  while(outFileName.find("/") != std::string::npos){
+    outFileName.replace(0, outFileName.find("/")+1, "");
+  }
+  checkMakeDir("output");
+  checkMakeDir("output/" + dateStr);
+  if(outFileName.find(".root") != std::string::npos) outFileName.replace(outFileName.find(".root"), outFileName.size(), "");
+
+  outFileName = "output/" + dateStr + "/" + outFileName + "_RatePlots_" + dateStr + ".root";
+
+  TFile* outFile_p = new TFile(outFileName.c_str(), "RECREATE");
+
+  const Int_t nSubPD = uniqueSubPD.size();
+  TH1F* subPDFires40KHz_h[nSubPD];
+  for(Int_t sI = 0; sI < nSubPD; ++sI){
+    std::vector<double> temp = subPDThresholds.at(sI);
+    std::sort(std::begin(temp), std::end(temp));
+    subPDThresholds.at(sI) = temp;
+
+    const Int_t nBins = subPDThresholds.at(sI).size();
+    Double_t bins[nBins+1];
+    bins[0] = subPDThresholds.at(sI).at(0) - (subPDThresholds.at(sI).at(1) - subPDThresholds.at(sI).at(0))/2.;
+
+    for(Int_t bIX = 0; bIX < nBins; ++bIX){
+      bins[bIX+1] = subPDThresholds.at(sI).at(bIX) + (subPDThresholds.at(sI).at(bIX+1) - subPDThresholds.at(sI).at(bIX))/2.;
+    }
+    
+    bins[nBins] = subPDThresholds.at(sI).at(nBins-1) + (subPDThresholds.at(sI).at(nBins-1) - subPDThresholds.at(sI).at(nBins-2))/2.;
+
+
+    subPDFires40KHz_h[sI] = new TH1F(("subPDFires40KHz_" + uniqueSubPD.at(sI) + "_h").c_str(), ";Threshold;Rate at 40 kHz (Hz)", nBins, bins);
+  }
+
+
 
   hltTree_p->SetBranchStatus("*", 0);
   for(Int_t bI = 0; bI < nTrig; ++bI){
@@ -175,6 +246,35 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
 
   inFile_p->Close();
   delete inFile_p;
+
+  outFile_p->cd();
+
+  for(Int_t bI = 0; bI < nTrig; ++bI){
+    Int_t subPDPos = -1;
+
+    for(Int_t sI = 0; sI < nSubPD; ++sI){
+      if(isStrSame(uniqueSubPD.at(sI), trigSubPD[sI])){
+	subPDPos = sI;
+	break;
+      }
+    }
+
+    Int_t binPos = subPDFires40KHz_h[subPDPos]->FindBin(trigThreshold.at(bI));
+
+    Double_t val = ((Double_t)trigFires[bI])*40000./((Double_t)nEntries);
+    Double_t valErr = ((Double_t)trigFires[bI] + TMath::Sqrt(trigFires[bI]))*40000./((Double_t)nEntries) - val;
+
+    subPDFires40KHz_h[subPDPos]->SetBinContent(binPos, val);
+    subPDFires40KHz_h[subPDPos]->SetBinError(binPos, valErr);
+  }
+  
+  for(Int_t sI = 0; sI < nSubPD; ++sI){
+    subPDFires40KHz_h[sI]->Write("", TObject::kOverwrite);
+    delete subPDFires40KHz_h[sI];
+  }
+
+  outFile_p->Close();
+  delete outFile_p;
 
   
   std::cout << "#: Name, PD, SubPD, Final prescale, Fires, Prescaled Fires, Rate at 40kHz (Hz), Prescaled Rate at 40kHz (Hz)" << std::endl;
