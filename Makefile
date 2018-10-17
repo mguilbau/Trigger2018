@@ -12,7 +12,7 @@ MKDIR_BIN = mkdir -p $(PWD)/bin
 MKDIR_PDFDIR = mkdir -p $(PWD)/pdfDir
 MKDIR_OUTPUT = mkdir -p $(PWD)/output
 
-all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/hltFiringFraction.exe bin/checkHLTAgainstL1Xml.exe bin/listHLT.exe bin/doPrescaling.exe bin/quickHiBin.exe
+all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/hltFiringFraction.exe bin/checkHLTAgainstL1Xml.exe bin/checkHLTAgainstPrescaleInput.exe bin/listHLT.exe bin/doPrescaling.exe bin/quickHiBin.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -46,6 +46,9 @@ bin/hltFiringFraction.exe: src/hltFiringFraction.C
 
 bin/checkHLTAgainstL1Xml.exe: src/checkHLTAgainstL1Xml.C
 	$(CXX) $(CXXFLAGS) src/checkHLTAgainstL1Xml.C $(ROOT) -I $(PWD) -o bin/checkHLTAgainstL1Xml.exe 
+
+bin/checkHLTAgainstPrescaleInput.exe: src/checkHLTAgainstPrescaleInput.C
+	$(CXX) $(CXXFLAGS) src/checkHLTAgainstPrescaleInput.C $(ROOT) -I $(PWD) -o bin/checkHLTAgainstPrescaleInput.exe 
 
 bin/listHLT.exe: src/listHLT.C
 	$(CXX) $(CXXFLAGS) src/listHLT.C $(ROOT) -I $(PWD) -o bin/listHLT.exe 
