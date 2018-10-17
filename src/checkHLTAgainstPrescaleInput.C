@@ -16,7 +16,7 @@
 #include "include/returnRootFileContentsList.h"
 #include "include/stringUtil.h"
 
-int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFileName)
+int checkHLTAgainstPrescaleInput(const std::string inFileName, const std::string l1PrescaleFileName)
 {
   if(!checkFile(inFileName)){
     std::cout << "Warning: Given inFileName \'" << inFileName << "\' is not a valid file. return 1" << std::endl;
@@ -27,12 +27,12 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
     return 1;
   }
 
-  if(!checkFile(l1XmlFileName)){
-    std::cout << "Warning: Given l1XmlFileName \'" << l1XmlFileName << "\' is not a valid file. return 1" << std::endl;
+  if(!checkFile(l1PrescaleFileName)){
+    std::cout << "Warning: Given l1PrescaleFileName \'" << l1PrescaleFileName << "\' is not a valid file. return 1" << std::endl;
     return 1;
   }
-  else if(l1XmlFileName.find(".xml") == std::string::npos){
-    std::cout << "Warning: Given l1XmlFileName \'" << l1XmlFileName << "\' is not a valid .xml file. return 1" << std::endl;
+  else if(l1PrescaleFileName.find(".txt") == std::string::npos){
+    std::cout << "Warning: Given l1PrescaleFileName \'" << l1PrescaleFileName << "\' is not a valid .txt file. return 1" << std::endl;
     return 1;
   }
 
@@ -65,11 +65,6 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
     if(branchName.size() < 4) continue;
     if(branchName.substr(0,4).find("HLT_") == std::string::npos) continue;
 
-    branchName.replace(0, 4, "");
-    branchName.replace(branchName.rfind("_v"), branchName.size(), "");
-
-    while(branchName.find("_") != std::string::npos){branchName.replace(branchName.find("_"), 1, "");} 
-
     finalListOfBranches.push_back(branchName);
   }
 
@@ -78,15 +73,10 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
 
   std::vector<std::string> listOfL1Branches;
   std::vector<bool> listOfL1BranchesFound;
-  std::ifstream inFile(l1XmlFileName.c_str());
+  std::ifstream inFile(l1PrescaleFileName.c_str());
   std::string tempStr;
   while(std::getline(inFile, tempStr)){
-    if(tempStr.find("<name>L1_") == std::string::npos) continue;
-
-    while(tempStr.find(" ") != std::string::npos){tempStr.replace(tempStr.find(" "), 1, "");}
-    while(tempStr.find("_") != std::string::npos){tempStr.replace(tempStr.find("_"), 1, "");}
-    tempStr.replace(tempStr.find("<name>"), std::string("<name>").size(), "");
-    tempStr.replace(tempStr.find("</name>"), std::string("</name>").size(), "");
+    tempStr = tempStr.substr(0, tempStr.find(","));
     
     listOfL1Branches.push_back(tempStr);
     listOfL1BranchesFound.push_back(false);
@@ -117,7 +107,7 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
   } 
 
   int missedHLT = 0;
-  std::cout << "HLT Branches w/o corresponding L1" << std::endl;
+  std::cout << "HLT Branches w/o corresponding Prescale" << std::endl;
   //Now do matching
   for(unsigned int bI = 0; bI < finalListOfBranches.size(); ++bI){
     bool isFound = false;
@@ -140,7 +130,7 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
   }
 
   int missedL1 = 0;
-  std::cout << "L1 Branches w/o corresponding HLT" << std::endl;
+  std::cout << "Prescale Branches w/o corresponding HLT" << std::endl;
   for(unsigned int bI = 0; bI < listOfL1Branches.size(); ++bI){
     if(listOfL1BranchesFound.at(bI)) continue;
 
@@ -157,11 +147,11 @@ int checkHLTAgainstL1Xml(const std::string inFileName, const std::string l1XmlFi
 int main(int argc, char* argv[])
 {
   if(argc != 3){
-    std::cout << "Usage: ./bin/checkHLTAgainstL1Xml.exe <inFileName> <l1XmlFileName>" << std::endl;
+    std::cout << "Usage: ./bin/checkHLTAgainstPrescaleInput.exe <inFileName> <l1PrescaleFile>" << std::endl;
     return 1;
   }
 
   int retVal = 0;
-  retVal += checkHLTAgainstL1Xml(argv[1], argv[2]);
+  retVal += checkHLTAgainstPrescaleInput(argv[1], argv[2]);
   return retVal;
 }
