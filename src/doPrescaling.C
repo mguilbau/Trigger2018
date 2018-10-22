@@ -20,7 +20,7 @@
 #include "include/returnRootFileContentsList.h"
 #include "include/stringUtil.h"
 
-int doPrescaling(const std::string inFileName, const std::string prescaleConfigName, const std::string l1XmlFileName, const double inCollisionRatekHz)
+int doPrescaling(const std::string inFileName, const std::string prescaleConfigName, const std::string l1XmlFileName, const double inCollisionRatekHz, const bool disableXML = false)
 {
   if(!checkFile(inFileName)){
     std::cout << "Warning: Given inFileName \'" << inFileName << "\' is not a valid file. return 1" << std::endl;
@@ -40,11 +40,11 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     return 1;
   }
 
-  if(!checkFile(l1XmlFileName)){
+  if(!checkFile(l1XmlFileName) && !disableXML){
     std::cout << "Warning: Given l1XmlFileName \'" << l1XmlFileName << "\' is not a valid file. return 1" << std::endl;
     return 1;
   }
-  else if(l1XmlFileName.find(".xml") == std::string::npos){
+  else if(l1XmlFileName.find(".xml") == std::string::npos && !disableXML){
     std::cout << "Warning: Given l1XmlFileName \'" << l1XmlFileName << "\' is not a valid .xml file. return 1" << std::endl;
     return 1;
   }
@@ -163,21 +163,23 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
   Int_t trigPrescaledFires[nTrig];
 
   std::string matchingL1FromXML[nTrig];
-
-  std::ifstream xmlFile(l1XmlFileName.c_str());
   std::vector<std::string> fullXmlList;
   std::vector<bool> fullXmlListMatched;
-  while(std::getline(xmlFile, tempStr)){
-    if(tempStr.find("<name>L1_") == std::string::npos) continue;
-    tempStr.replace(tempStr.find("<name>"), std::string("<name>").size(), "");
-    tempStr.replace(tempStr.find("</name>"), std::string("</name>").size(), "");
 
-    while(tempStr.find(" ") != std::string::npos){tempStr.replace(tempStr.find(" "), 1, "");}
-
-    fullXmlList.push_back(tempStr);
-    fullXmlListMatched.push_back(false);
+  if(!disableXML){
+    std::ifstream xmlFile(l1XmlFileName.c_str());
+    while(std::getline(xmlFile, tempStr)){
+      if(tempStr.find("<name>L1_") == std::string::npos) continue;
+      tempStr.replace(tempStr.find("<name>"), std::string("<name>").size(), "");
+      tempStr.replace(tempStr.find("</name>"), std::string("</name>").size(), "");
+      
+      while(tempStr.find(" ") != std::string::npos){tempStr.replace(tempStr.find(" "), 1, "");}
+      
+      fullXmlList.push_back(tempStr);
+      fullXmlListMatched.push_back(false);
+    }
+    xmlFile.close();
   }
-  xmlFile.close();
 
   for(Int_t tI = 0; tI < nTrig; ++tI){
     std::string tempTrigName = trigNames.at(tI);
@@ -185,23 +187,29 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
     tempTrigName.replace(tempTrigName.rfind("_v"), tempTrigName.size(), "");
 
     bool trigIsFound = false;
-    for(unsigned int xI = 0; xI < fullXmlList.size(); ++xI){
-      if(fullXmlListMatched.at(xI)) continue;
-      std::string tempL1Name = fullXmlList.at(xI);
-      while(tempL1Name.find("_") != std::string::npos){tempL1Name.replace(tempL1Name.find("_"), 1, "");}
-      //      std::cout << "tempL1Name: \'" << tempL1Name << "\', \'" << tempTrigName << "\'" << std::endl;
-
-      if(isStrSame(tempL1Name, tempTrigName)){
-	fullXmlListMatched.at(xI) = true;
-	matchingL1FromXML[tI] = fullXmlList.at(xI);
-	trigIsFound = true;
-	break;
-      }
+    if(disableXML){
+      trigIsFound = true;
+      matchingL1FromXML[tI] = trigNames.at(tI);
     }
-    
-    if(!trigIsFound){
-      std::cout << "WARNING: \'" << trigNames.at(tI) << "\' is not found in xml \'" << l1XmlFileName << "\'. Setting blank" << std::endl;
-      matchingL1FromXML[tI] = "MISSING";
+    else{
+      for(unsigned int xI = 0; xI < fullXmlList.size(); ++xI){
+	if(fullXmlListMatched.at(xI)) continue;
+	std::string tempL1Name = fullXmlList.at(xI);
+	while(tempL1Name.find("_") != std::string::npos){tempL1Name.replace(tempL1Name.find("_"), 1, "");}
+	//      std::cout << "tempL1Name: \'" << tempL1Name << "\', \'" << tempTrigName << "\'" << std::endl;
+	
+	if(isStrSame(tempL1Name, tempTrigName)){
+	  fullXmlListMatched.at(xI) = true;
+	  matchingL1FromXML[tI] = fullXmlList.at(xI);
+	  trigIsFound = true;
+	  break;
+	}
+      }
+      
+      if(!trigIsFound){
+	std::cout << "WARNING: \'" << trigNames.at(tI) << "\' is not found in xml \'" << l1XmlFileName << "\'. Setting blank" << std::endl;
+	matchingL1FromXML[tI] = "MISSING";
+      }
     }
   }
 
@@ -347,21 +355,21 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
 
   std::cout << std::endl;
 
-  std::cout << "PD, Total Prescaled Fires, Rate at " << (Int_t)inCollisionRatekHz << "kHz (Hz)" << std::endl;
+  std::cout << "SUMMARY: PD, Total Prescaled Fires, Rate at " << (Int_t)inCollisionRatekHz << "kHz (Hz)" << std::endl;
   for(auto const &iter : pdMapToFires){
-    std::cout << iter.first << ", " << iter.second << ", " << ((Double_t)iter.second)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
+    std::cout << " SUMMARY: " << iter.first << ", " << iter.second << ", " << ((Double_t)iter.second)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
   }
 
   std::cout << std::endl;
 
-  std::cout << "SubPD, Total Prescaled Fires, Rate at " << (Int_t)inCollisionRatekHz << "kHz (Hz)" << std::endl;
+  std::cout << "SUMMARY: SubPD, Total Prescaled Fires, Rate at " << (Int_t)inCollisionRatekHz << "kHz (Hz)" << std::endl;
   for(auto const &iter : subPDMapToFires){
-    std::cout << iter.first << ", " << iter.second << ", " << ((Double_t)iter.second)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
+    std::cout << " SUMMARY: " << iter.first << ", " << iter.second << ", " << ((Double_t)iter.second)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
   }
 
   std::cout << std::endl;
 
-  std::cout << "Total fires, Rate at " << (Int_t)inCollisionRatekHz << " kHz (Hz): " << totalFires << ", " << ((Double_t)totalFires)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
+  std::cout << "SUMMARY: Total fires, Rate at " << (Int_t)inCollisionRatekHz << " kHz (Hz): " << totalFires << ", " << ((Double_t)totalFires)*inCollisionRatekHz*1000./((Double_t)nEntries) << std::endl;
 
   std::cout << std::endl;
 
@@ -370,12 +378,13 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
 
 int main(int argc, char* argv[])
 {
-  if(argc != 5){
+  if(argc < 5 || argc > 6){
     std::cout << "Usage: ./bin/doPrescaling.exe <inFileName> <prescaleConfigName> <l1XmlFileName> <inCollisionRatekHz>" << std::endl;
     return 1;
   }
 
   int retVal = 0;
-  retVal += doPrescaling(argv[1], argv[2], argv[3], std::stod(argv[4]));
+  if(argc == 5) retVal += doPrescaling(argv[1], argv[2], argv[3], std::stod(argv[4]));
+  else if(argc == 6) retVal += doPrescaling(argv[1], argv[2], argv[3], std::stod(argv[4]), std::stoi(argv[5]));
   return retVal;
 }
