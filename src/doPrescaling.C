@@ -379,7 +379,7 @@ int doPrescaling(const std::string inFileName, const std::string prescaleConfigN
 int main(int argc, char* argv[])
 {
   if(argc < 5 || argc > 6){
-    std::cout << "Usage: ./bin/doPrescaling.exe <inFileName> <prescaleConfigName> <l1XmlFileName> <inCollisionRatekHz>" << std::endl;
+    std::cout << "Usage: ./bin/doPrescaling.exe <inFileName> <prescaleConfigName> <l1XmlFileName> <inCollisionRatekHz> <overrideXML-Optional>" << std::endl;
     return 1;
   }
 
