@@ -12,7 +12,7 @@ MKDIR_BIN = mkdir -p $(PWD)/bin
 MKDIR_PDFDIR = mkdir -p $(PWD)/pdfDir
 MKDIR_OUTPUT = mkdir -p $(PWD)/output
 
-all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/hltFiringFraction.exe bin/checkHLTAgainstL1Xml.exe bin/checkHLTAgainstPrescaleInput.exe bin/listHLT.exe bin/doPrescaling.exe bin/quickHiBin.exe
+all: mkdirBin mkdirOutput mkdirPdfdir bin/l1Comp.exe bin/l1OfflineSubtract.exe bin/l1FiringFraction.exe bin/l1CaloTowerDist.exe bin/l1OfflineEvtDisp.exe bin/l1ToTTree.exe bin/hltFiringFraction.exe bin/checkHLTAgainstL1Xml.exe bin/checkHLTAgainstPrescaleInput.exe bin/listHLT.exe bin/doPrescaling.exe bin/quickHiBin.exe bin/emptyBunches.exe bin/createJsonFromL1.exe
 
 mkdirBin:
 	$(MKDIR_BIN)
@@ -58,6 +58,12 @@ bin/doPrescaling.exe: src/doPrescaling.C
 
 bin/quickHiBin.exe: src/quickHiBin.C
 	$(CXX) $(CXXFLAGS) src/quickHiBin.C $(ROOT) -I $(PWD) -o bin/quickHiBin.exe 
+
+bin/emptyBunches.exe: src/emptyBunches.C
+	$(CXX) $(CXXFLAGS) src/emptyBunches.C $(ROOT) -I $(PWD) -o bin/emptyBunches.exe 
+
+bin/createJsonFromL1.exe: src/createJsonFromL1.C
+	$(CXX) $(CXXFLAGS) src/createJsonFromL1.C $(ROOT) -I $(PWD) -o bin/createJsonFromL1.exe 
 
 
 clean:
