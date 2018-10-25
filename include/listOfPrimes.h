@@ -18,7 +18,7 @@ int getNearestPrime(int inNumber)
     }
   }
 
-  if(prime == -1) std::cout << "WARNING: GIVEN INPUT \'" << inNumber << "\' found no closest prime. returning -1" << std::endl;
+  //if(prime == -1) std::cout << "WARNING: GIVEN INPUT \'" << inNumber << "\' found no closest prime. returning -1" << std::endl;
   
   return prime;
 }
